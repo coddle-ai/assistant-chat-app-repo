@@ -1,0 +1,1305 @@
+import React, { useEffect, useRef, useState } from "react";
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  StyleSheet,
+  SafeAreaView,
+  Platform,
+  Animated,
+  Image,
+  PanResponder,
+  Dimensions,
+  Modal,
+  Switch,
+} from "react-native";
+import { IconSymbol } from "@/components/ui/IconSymbol";
+import { Colors } from "@/constants/Colors";
+import { useColorScheme } from "@/hooks/useColorScheme";
+import { useRouter } from "expo-router";
+
+const trackingData = [
+  {
+    type: "Bottle",
+    activityType: "Bottle",
+    lastTime: "1h ago",
+    quantity: "120ml",
+    color: "#EBF5FF",
+    textColor: "#1E40AF",
+    isBottle: true,
+    isDue: true,
+  },
+  {
+    type: "Breastfeed",
+    activityType: "Breastfeeding",
+    lastTime: "2h ago",
+    quantity: "10 min",
+    color: "#FCE7F3",
+    textColor: "#9D174D",
+  },
+  {
+    type: "Solids",
+    activityType: "Solid",
+    lastTime: "3h ago",
+    quantity: "Banana",
+    color: "#FEF3C7",
+    textColor: "#92400E",
+  },
+  {
+    type: "Sleep",
+    activityType: "Sleep",
+    lastTime: "Just now",
+    quantity: "Started",
+    color: "#CCFBF1",
+    textColor: "#134E4A",
+    isOngoing: true,
+  },
+  {
+    type: "Diaper",
+    activityType: "Diaper",
+    lastTime: "1.5h ago",
+    quantity: "Wet",
+    color: "#D1FAE5",
+    textColor: "#065F46",
+    isDiaper: true,
+  },
+  {
+    type: "Pumping",
+    activityType: "Pumping",
+    lastTime: "30m ago",
+    quantity: "150ml",
+    color: "#FEE2E2",
+    textColor: "#991B1B",
+  },
+  {
+    type: "Growth",
+    activityType: "Growth",
+    lastTime: "2d ago",
+    quantity: "7.2 kg",
+    color: "#F3E8FF",
+    textColor: "#6B21A8",
+  },
+  {
+    type: "Activities",
+    activityType: "Activities",
+    lastTime: "1d ago",
+    quantity: "Tummy time",
+    color: "#E0F2FE",
+    textColor: "#075985",
+  },
+  {
+    type: "Milestones",
+    activityType: "Milestones",
+    lastTime: "5d ago",
+    quantity: "First word",
+    color: "#FFE4E6",
+    textColor: "#9F1239",
+  },
+  {
+    type: "Medications",
+    activityType: "Medications",
+    lastTime: "12h ago",
+    quantity: "Vitamin D",
+    color: "#F1F5F9",
+    textColor: "#334155",
+  },
+];
+
+const prompts = [
+  {
+    type: "question",
+    text: "What should I do if baby skips naps?",
+    icon: "❓",
+  },
+  {
+    type: "recommendation",
+    text: "Best sleep schedule for 6-month-old",
+    icon: "💡",
+  },
+  {
+    type: "question",
+    text: "How to handle night wakings?",
+    icon: "❓",
+  },
+  {
+    type: "recommendation",
+    text: "Solid food ideas for 9-month-old",
+    icon: "💡",
+  },
+  {
+    type: "log",
+    text: "Log bottle feeding",
+    icon: "🍼",
+  },
+];
+
+export default function CoddleScreen() {
+  const colorScheme = useColorScheme();
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const borderPulseAnim = useRef(new Animated.Value(0.3)).current;
+  const [showExpoBar, setShowExpoBar] = useState(false);
+  const [showActivitiesModal, setShowActivitiesModal] = useState(false);
+  const [breastfeedTimer, setBreastfeedTimer] = useState({
+    isRunning: false,
+    activeSide: null,
+    seconds: 0,
+    leftSeconds: 0,
+    rightSeconds: 0,
+    totalSeconds: 0,
+  });
+  const timerRef = useRef(null);
+  const [activities, setActivities] = useState({
+    Breastfeeding: true,
+    Bottle: true,
+    Solid: true,
+    Diaper: true,
+    Sleep: true,
+    Pumping: true,
+    Growth: false,
+    Activities: false,
+    Milestones: false,
+    Medications: false,
+  });
+
+  // Add new Animated Values for FAB position with initial values
+  const pan = useRef(
+    new Animated.ValueXY({
+      x: Dimensions.get("window").width - 80,
+      y: Dimensions.get("window").height - 200,
+    })
+  ).current;
+  const screenWidth = Dimensions.get("window").width;
+  const screenHeight = Dimensions.get("window").height;
+
+  // Create panResponder
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onPanResponderGrant: () => {
+        pan.setOffset({
+          x: pan.x._value,
+          y: pan.y._value,
+        });
+        pan.setValue({ x: 0, y: 0 });
+      },
+      onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], {
+        useNativeDriver: false,
+      }),
+      onPanResponderRelease: (e, gesture) => {
+        pan.flattenOffset();
+
+        // Snap to edges
+        const newX = gesture.moveX > screenWidth / 2 ? screenWidth - 80 : 16;
+
+        // Calculate bounded Y position
+        const maxY = screenHeight - 200;
+        const minY = 100;
+        const boundedY = Math.min(Math.max(gesture.moveY, minY), maxY);
+
+        Animated.parallel([
+          Animated.spring(pan.x, {
+            toValue: newX,
+            useNativeDriver: false,
+            friction: 6,
+          }),
+          Animated.spring(pan.y, {
+            toValue: boundedY,
+            useNativeDriver: false,
+            friction: 6,
+          }),
+        ]).start();
+      },
+    })
+  ).current;
+
+  const router = useRouter();
+
+  useEffect(() => {
+    if (breastfeedTimer.isRunning) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.1,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    } else {
+      pulseAnim.setValue(1);
+    }
+  }, [breastfeedTimer.isRunning]);
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(borderPulseAnim, {
+          toValue: 1,
+          duration: 1500,
+          useNativeDriver: false,
+        }),
+        Animated.timing(borderPulseAnim, {
+          toValue: 0.3,
+          duration: 1500,
+          useNativeDriver: false,
+        }),
+      ])
+    ).start();
+  }, []);
+
+  const toggleExpoBar = () => {
+    setShowExpoBar(!showExpoBar);
+  };
+
+  const toggleActivity = (activity) => {
+    setActivities((prev) => ({
+      ...prev,
+      [activity]: !prev[activity],
+    }));
+  };
+
+  // Filter tracking cards based on selected activities
+  const visibleTrackingData = trackingData.filter(
+    (item) => activities[item.activityType]
+  );
+
+  // Update timer functions
+  const startTimer = (side) => {
+    if (breastfeedTimer.isRunning && breastfeedTimer.activeSide === side) {
+      // Stop timer if clicking the same side
+      clearInterval(timerRef.current);
+      setBreastfeedTimer((prev) => ({
+        ...prev,
+        isRunning: false,
+        activeSide: null,
+        seconds: 0,
+      }));
+    } else {
+      // Start new timer
+      if (breastfeedTimer.isRunning) {
+        clearInterval(timerRef.current);
+        // Save the time for the previous side
+        setBreastfeedTimer((prev) => ({
+          ...prev,
+          [prev.activeSide === "left" ? "leftSeconds" : "rightSeconds"]:
+            prev.seconds,
+          seconds: 0,
+          activeSide: side,
+        }));
+      }
+      setBreastfeedTimer((prev) => ({
+        ...prev,
+        isRunning: true,
+        activeSide: side,
+        seconds: 0,
+      }));
+      timerRef.current = setInterval(() => {
+        setBreastfeedTimer((prev) => ({
+          ...prev,
+          seconds: prev.seconds + 1,
+          totalSeconds: prev.totalSeconds + 1,
+        }));
+      }, 1000);
+    }
+  };
+
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
+
+  // Clean up timer on unmount
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, []);
+
+  const handlePromptClick = (prompt) => {
+    router.push({
+      pathname: "/chat",
+      params: {
+        initialQuestion: prompt.text,
+        isFromPrompt: true,
+      },
+    });
+  };
+
+  const renderTrackingCard = (item, index) => {
+    const isLastCard = index === visibleTrackingData.length - 1;
+    const isOddCount = visibleTrackingData.length % 2 !== 0;
+
+    // Function to render the quantity text based on card type
+    const renderQuantityText = () => {
+      if (item.type === "Breastfeed") {
+        if (breastfeedTimer.isRunning) {
+          const activeTime = formatTime(breastfeedTimer.seconds);
+          const totalTime = formatTime(breastfeedTimer.totalSeconds);
+          const leftTime = formatTime(breastfeedTimer.leftSeconds);
+          const rightTime = formatTime(breastfeedTimer.rightSeconds);
+
+          return `⏱ Total: ${totalTime}\n${
+            breastfeedTimer.activeSide === "left" ? "L" : "R"
+          }: ${activeTime}`;
+        }
+        return item.quantity;
+      }
+      return item.quantity;
+    };
+
+    return (
+      <View
+        key={`${item.type}-${item.lastTime}`}
+        style={[
+          styles.trackingCard,
+          { backgroundColor: item.color },
+          isLastCard && isOddCount && styles.fullWidthCard,
+        ]}
+      >
+        <View>
+          <View style={styles.cardHeader}>
+            <Text style={[styles.trackingType, { color: item.textColor }]}>
+              {item.type}
+            </Text>
+            {item.isDue && (
+              <View style={styles.dueTag}>
+                <Text style={styles.dueText}>Due</Text>
+              </View>
+            )}
+          </View>
+          {item.isOngoing && (
+            <Animated.View
+              style={[
+                styles.ongoingIndicator,
+                { transform: [{ scale: pulseAnim }] },
+                item.type === "Sleep" && styles.sleepIndicator,
+              ]}
+            >
+              <IconSymbol size={16} name="moon.fill" color="#DC2626" />
+            </Animated.View>
+          )}
+          {item.type === "Breastfeed" && breastfeedTimer.isRunning && (
+            <Animated.View
+              style={[
+                styles.ongoingIndicator,
+                { transform: [{ scale: pulseAnim }] },
+                styles.breastfeedIndicator,
+              ]}
+            >
+              <IconSymbol size={16} name="drop.fill" color="#DC2626" />
+            </Animated.View>
+          )}
+          <Text style={[styles.trackingText, { color: item.textColor }]}>
+            {item.type === "Bottle" && "🍼"}
+            {item.type === "Breastfeed" && "🤱"}
+            {item.type === "Solids" && "🥄"}
+            {item.type === "Sleep" && "😴"}
+            {item.type === "Diaper" && "🧷"}
+            {item.type === "Pumping" && "🤱"}
+            {item.type === "Growth" && "📏"}
+            {item.type === "Activities" && "🎯"}
+            {item.type === "Milestones" && "🎉"}
+            {item.type === "Medications" && "💊"}
+            {item.lastTime}
+          </Text>
+          <Text style={[styles.trackingText, { color: item.textColor }]}>
+            {item.type === "Bottle" && "🥛"}
+            {item.type === "Solids" && "🍽"}
+            {item.type === "Sleep" && "⏰"}
+            {item.type === "Diaper" && "📝"}
+            {item.type === "Pumping" && "🥛"}
+            {item.type === "Growth" && "⚖️"}
+            {item.type === "Activities" && "🔄"}
+            {item.type === "Milestones" && "📸"}
+            {item.type === "Medications" && "⏲️"}
+            {renderQuantityText()}
+          </Text>
+        </View>
+
+        <View style={styles.actionButtons}>
+          {item.isDiaper ? (
+            <>
+              <TouchableOpacity style={styles.iconButton}>
+                <Text>💩</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.iconButton}>
+                <Text>💧</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.iconButton}>
+                <Text>♻️</Text>
+              </TouchableOpacity>
+            </>
+          ) : item.isBottle ? (
+            <>
+              <TouchableOpacity style={styles.iconButton}>
+                <Text>🍼</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.iconButton}>
+                <Text>🥛</Text>
+              </TouchableOpacity>
+            </>
+          ) : item.type === "Breastfeed" ? (
+            <>
+              <TouchableOpacity
+                style={[
+                  styles.iconButton,
+                  styles.suggestedButton,
+                  breastfeedTimer.activeSide === "left" &&
+                    styles.highlightedButton,
+                ]}
+                onPress={() => startTimer("left")}
+              >
+                <View style={styles.breastfeedButtonContent}>
+                  <IconSymbol
+                    size={20}
+                    name={
+                      breastfeedTimer.activeSide === "left"
+                        ? "stop.fill"
+                        : "play.fill"
+                    }
+                    color="#6B7280"
+                  />
+                  <Text style={styles.breastfeedButtonLabel}>L</Text>
+                </View>
+                <Animated.View
+                  style={[
+                    styles.pulsingBorder,
+                    {
+                      borderColor: borderPulseAnim.interpolate({
+                        inputRange: [0.3, 1],
+                        outputRange: [
+                          "rgba(157, 23, 77, 0.1)",
+                          "rgba(157, 23, 77, 1)",
+                        ],
+                      }),
+                    },
+                  ]}
+                />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.iconButton,
+                  breastfeedTimer.activeSide === "right" &&
+                    styles.highlightedButton,
+                ]}
+                onPress={() => startTimer("right")}
+              >
+                <View style={styles.breastfeedButtonContent}>
+                  <IconSymbol
+                    size={20}
+                    name={
+                      breastfeedTimer.activeSide === "right"
+                        ? "stop.fill"
+                        : "play.fill"
+                    }
+                    color="#6B7280"
+                  />
+                  <Text style={styles.breastfeedButtonLabel}>R</Text>
+                </View>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <TouchableOpacity style={styles.plusButton}>
+              <IconSymbol size={24} name="plus" color="#1F2937" />
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+    );
+  };
+
+  const renderSummaryCard = () => (
+    <View style={styles.summaryCard}>
+      <View style={styles.summaryHeader}>
+        <Text style={styles.sectionTitle}>Today's Summary</Text>
+        <TouchableOpacity style={styles.viewAllButton} activeOpacity={0.7}>
+          <Text style={styles.viewAllText}>View All</Text>
+          <IconSymbol size={14} name="chevron.right" color="#4B5563" />
+        </TouchableOpacity>
+      </View>
+      <View style={styles.summarySection}>
+        <Text style={styles.sectionTitle}>Feeding</Text>
+        <Text style={styles.summaryText}>🍼 Bottle: 2x (250ml)</Text>
+        <Text style={styles.summaryText}>🤱 Breastfeeding: 1x (10 min)</Text>
+        <Text style={styles.summaryText}>🍌 Solids: 2x (Banana, Oats)</Text>
+      </View>
+
+      <View style={styles.summarySection}>
+        <Text style={styles.sectionTitle}>Sleep</Text>
+        <Text style={styles.summaryText}>😴 Nap: 1x</Text>
+      </View>
+
+      <View style={styles.summarySection}>
+        <Text style={styles.sectionTitle}>Diaper</Text>
+        <Text style={styles.summaryText}>💩 2x (Mixed)</Text>
+      </View>
+    </View>
+  );
+
+  const renderActivityModal = () => (
+    <Modal
+      animationType="slide"
+      transparent={true}
+      visible={showActivitiesModal}
+      onRequestClose={() => setShowActivitiesModal(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Activities</Text>
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => setShowActivitiesModal(false)}
+            >
+              <IconSymbol size={24} name="xmark" color="#4B5563" />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView
+            style={styles.modalScrollView}
+            showsVerticalScrollIndicator={false}
+          >
+            {Object.entries(activities).map(([activity, isEnabled]) => (
+              <View key={activity} style={styles.activityRow}>
+                <Text style={styles.activityText}>{activity}</Text>
+                <Switch
+                  trackColor={{ false: "#E5E7EB", true: "#FCD34D" }}
+                  thumbColor={"#FFFFFF"}
+                  ios_backgroundColor="#E5E7EB"
+                  onValueChange={() => toggleActivity(activity)}
+                  value={isEnabled}
+                  style={{ transform: [{ scaleX: 1.1 }, { scaleY: 1.1 }] }}
+                />
+              </View>
+            ))}
+          </ScrollView>
+
+          <TouchableOpacity
+            style={styles.saveButton}
+            onPress={() => setShowActivitiesModal(false)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.saveButtonText}>Save Changes</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.childSelector}>
+          <View style={styles.childInfo}>
+            <Text style={styles.childName} numberOfLines={1}>
+              Om
+            </Text>
+            <Text style={styles.childAge}>20m 15d</Text>
+          </View>
+          <IconSymbol size={16} name="chevron.down" color="#1F2937" />
+        </TouchableOpacity>
+
+        <View style={styles.logoContainer}>
+          <Image
+            source={require("@/assets/images/CoddleLogo.jpg")}
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
+        </View>
+
+        <View style={styles.headerIcons}>
+          <TouchableOpacity style={styles.iconButton}>
+            <IconSymbol size={24} name="bell" color="#4B5563" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.iconButton} onPress={toggleExpoBar}>
+            <IconSymbol
+              size={24}
+              name="gear"
+              color={showExpoBar ? "#FCD34D" : "#4B5563"}
+            />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollViewContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.mainContent}>
+          <View style={styles.trackingGrid}>
+            {visibleTrackingData.map((item, index) =>
+              renderTrackingCard(item, index)
+            )}
+          </View>
+
+          <View style={styles.promptsContainer}>
+            <Text style={styles.sectionTitle}>Suggestions</Text>
+            {prompts.map((prompt, index) => (
+              <TouchableOpacity
+                key={index}
+                style={[
+                  styles.promptCard,
+                  prompt.type === "question" && styles.questionCard,
+                  prompt.type === "recommendation" && styles.recommendationCard,
+                  prompt.type === "log" && styles.logCard,
+                ]}
+                activeOpacity={0.7}
+                onPress={() => handlePromptClick(prompt)}
+              >
+                <View style={[styles.promptIconContainer]}>
+                  <Text style={[styles.promptIcon]}>{prompt.icon}</Text>
+                </View>
+                <Text style={[styles.promptText]}>{prompt.text}</Text>
+                {prompt.type === "log" && (
+                  <View style={styles.logPromptButton}>
+                    <IconSymbol size={16} name="plus" color="#F59E0B" />
+                  </View>
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {renderSummaryCard()}
+          <View style={styles.editActivitiesContainer}>
+            <TouchableOpacity
+              style={styles.editActivitiesButton}
+              activeOpacity={0.7}
+              onPress={() => setShowActivitiesModal(true)}
+            >
+              <View style={styles.editActivitiesIconContainer}>
+                <IconSymbol size={16} name="pencil" color="#1F2937" />
+              </View>
+              <Text style={styles.editActivitiesText}>Edit Activities</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </ScrollView>
+
+      <View style={styles.bottomNav}>
+        <TouchableOpacity style={styles.navButton}>
+          <IconSymbol size={24} name="house" color="#4B5563" />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navButton}>
+          <IconSymbol size={24} name="list.bullet" color="#4B5563" />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navButton}>
+          <IconSymbol size={24} name="chart.bar" color="#4B5563" />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navButton}>
+          <IconSymbol size={24} name="person" color="#4B5563" />
+        </TouchableOpacity>
+      </View>
+
+      <Animated.View
+        style={[
+          styles.combinedFabContainer,
+          {
+            transform: [{ translateX: pan.x }, { translateY: pan.y }],
+            position: "absolute",
+            right: null, // Remove default right position
+            bottom: null, // Remove default bottom position
+          },
+        ]}
+        {...panResponder.panHandlers}
+      >
+        <TouchableOpacity style={styles.assistantFabButton}>
+          <IconSymbol size={20} name="waveform.path" color="#1F2937" />
+        </TouchableOpacity>
+        <View style={styles.fabDivider} />
+        <TouchableOpacity style={styles.assistantFabButton}>
+          <IconSymbol size={20} name="message.fill" color="#1F2937" />
+        </TouchableOpacity>
+      </Animated.View>
+      {renderActivityModal()}
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#F0FDF4",
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: "white",
+    borderBottomWidth: 1,
+    borderBottomColor: "#DCFCE7",
+    height: 60,
+  },
+  childSelector: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+    width: 110,
+    zIndex: 1,
+    borderWidth: 1,
+    borderColor: "#F3F4F6",
+  },
+  childInfo: {
+    flex: 1,
+  },
+  childName: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#1F2937",
+    lineHeight: 16,
+  },
+  childAge: {
+    fontSize: 10,
+    color: "#6B7280",
+    lineHeight: 12,
+  },
+  logoContainer: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 120,
+  },
+  logoImage: {
+    width: 90,
+    height: 28,
+  },
+  titleText: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#1F2937",
+  },
+  headerIcons: {
+    flexDirection: "row",
+    gap: 8,
+    zIndex: 1,
+    width: 130,
+    justifyContent: "flex-end",
+  },
+  scrollView: {
+    flex: 1,
+    width: "100%",
+  },
+  scrollViewContent: {
+    paddingBottom: Platform.OS === "ios" ? 90 : 70,
+    width: "100%",
+  },
+  mainContent: {
+    padding: 16,
+    gap: 12,
+    width: "100%",
+  },
+  trackingGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    paddingHorizontal: 2,
+    marginBottom: 4,
+  },
+  trackingCard: {
+    width: "48.2%",
+    borderRadius: 16,
+    padding: 14,
+    minHeight: 120,
+    justifyContent: "space-between",
+    backgroundColor: "white",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  cardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 12,
+  },
+  trackingType: {
+    fontSize: 15,
+    fontWeight: "600",
+    flex: 1,
+    marginBottom: 2,
+    letterSpacing: 0.2,
+  },
+  trackingText: {
+    fontSize: 13,
+    marginBottom: 6,
+    opacity: 0.9,
+    lineHeight: 18,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    letterSpacing: 0.1,
+  },
+  promptsContainer: {
+    gap: 6,
+    marginTop: 8,
+  },
+  promptCard: {
+    backgroundColor: "white",
+    borderRadius: 12,
+    padding: 10,
+    marginBottom: 4,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  questionCard: {
+    borderLeftWidth: 3,
+    borderLeftColor: "#3B82F6",
+  },
+  recommendationCard: {
+    borderLeftWidth: 3,
+    borderLeftColor: "#10B981",
+  },
+  logCard: {
+    borderLeftWidth: 3,
+    borderLeftColor: "#F59E0B",
+  },
+  promptIconContainer: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "rgba(0,0,0,0.03)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  promptIcon: {
+    fontSize: 14,
+  },
+  promptText: {
+    flex: 1,
+    fontSize: 14,
+    color: "#1F2937",
+    lineHeight: 20,
+    letterSpacing: 0.1,
+  },
+  summaryCard: {
+    backgroundColor: "white",
+    borderRadius: 16,
+    padding: 20,
+    gap: 20,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  summaryHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  viewAllButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    backgroundColor: "#F3F4F6",
+  },
+  viewAllText: {
+    fontSize: 13,
+    color: "#4B5563",
+    fontWeight: "500",
+  },
+  summarySection: {
+    gap: 12,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#1F2937",
+    marginBottom: 4,
+    letterSpacing: 0.2,
+  },
+  summaryText: {
+    fontSize: 14,
+    color: "#4B5563",
+    lineHeight: 20,
+    letterSpacing: 0.1,
+  },
+  dueTag: {
+    backgroundColor: "#FEF3C7",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+  },
+  dueText: {
+    fontSize: 11,
+    color: "#92400E",
+    fontWeight: "500",
+    letterSpacing: 0.1,
+  },
+  ongoingIndicator: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    backgroundColor: "white",
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  actionButtons: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 10,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(0,0,0,0.05)",
+  },
+  iconButton: {
+    width: 48,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "white",
+    justifyContent: "center",
+    alignItems: "center",
+    marginHorizontal: 4,
+  },
+  plusButton: {
+    backgroundColor: "white",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  bottomNav: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    alignItems: "center",
+    backgroundColor: "white",
+    paddingBottom: Platform.OS === "ios" ? 40 : 30,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(0,0,0,0.05)",
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  navButton: {
+    padding: 8,
+    borderRadius: 20,
+  },
+  combinedFabContainer: {
+    flexDirection: "column",
+    backgroundColor: "#FCD34D",
+    borderRadius: 24,
+    padding: 4,
+    zIndex: 999,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  assistantFabButton: {
+    backgroundColor: "#FCD34D",
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  fabDivider: {
+    height: 1,
+    backgroundColor: "rgba(31, 41, 55, 0.1)",
+    marginVertical: 4,
+  },
+  editActivitiesContainer: {
+    alignItems: "center",
+    marginTop: 12,
+    marginBottom: 20,
+  },
+  editActivitiesButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "white",
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+    borderRadius: 20,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  editActivitiesIconContainer: {
+    backgroundColor: "#F3F4F6",
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  editActivitiesText: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#1F2937",
+  },
+  sleepIndicator: {
+    backgroundColor: "rgba(220, 38, 38, 0.1)",
+    borderColor: "rgba(220, 38, 38, 0.2)",
+  },
+  logPromptButton: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "rgba(245, 158, 11, 0.1)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  logActionsContainer: undefined,
+  logActionButton: undefined,
+  logActionIconContainer: undefined,
+  logActionIcon: undefined,
+  logActionText: undefined,
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: "white",
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    paddingTop: 24,
+    paddingHorizontal: 20,
+    paddingBottom: Platform.OS === "ios" ? 40 : 24,
+    maxHeight: "85%",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 24,
+    paddingHorizontal: 4,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: "600",
+    color: "#1F2937",
+  },
+  closeButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: "#F3F4F6",
+  },
+  modalScrollView: {
+    marginBottom: 24,
+  },
+  activityRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 16,
+    paddingHorizontal: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F3F4F6",
+  },
+  activityText: {
+    fontSize: 17,
+    fontWeight: "500",
+    color: "#1F2937",
+  },
+  saveButton: {
+    backgroundColor: "#FCD34D",
+    padding: 16,
+    borderRadius: 20,
+    alignItems: "center",
+    marginTop: 8,
+    marginHorizontal: 4,
+  },
+  saveButtonText: {
+    fontSize: 17,
+    fontWeight: "600",
+    color: "#1F2937",
+  },
+  fullWidthCard: {
+    width: "100%",
+  },
+  breastfeedButtons: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 10,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(0,0,0,0.05)",
+  },
+  breastfeedButton: {
+    flex: 1,
+    marginHorizontal: 4,
+    backgroundColor: "white",
+    borderRadius: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  breastfeedButtonContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  breastfeedButtonLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#1F2937",
+    letterSpacing: 0.2,
+  },
+  highlightedButton: {
+    backgroundColor: "#FCD34D",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  suggestedButton: {
+    borderWidth: 0.5,
+    borderColor: "rgba(157, 23, 77, 0.3)",
+    borderRadius: 18,
+    backgroundColor: "white",
+  },
+  nextSideIndicator: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+  },
+  pulsingBorder: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderWidth: 0.5,
+    borderRadius: 18,
+    backgroundColor: "transparent",
+  },
+  breastfeedIndicator: {
+    backgroundColor: "rgba(220, 38, 38, 0.1)",
+    borderColor: "rgba(220, 38, 38, 0.2)",
+  },
+});
