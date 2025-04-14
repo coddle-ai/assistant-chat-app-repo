@@ -13,6 +13,7 @@ import {
   Dimensions,
   Modal,
   Switch,
+  TextInput,
 } from "react-native";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import { Colors } from "@/constants/Colors";
@@ -49,8 +50,8 @@ const trackingData = [
   {
     type: "Sleep",
     activityType: "Sleep",
-    lastTime: "Just now",
-    quantity: "Started",
+    lastTime: "2h 39m ago",
+    quantity: "1h 23m",
     color: "#CCFBF1",
     textColor: "#134E4A",
     isOngoing: true,
@@ -58,7 +59,7 @@ const trackingData = [
   {
     type: "Diaper",
     activityType: "Diaper",
-    lastTime: "1.5h ago",
+    lastTime: "1h 30m ago",
     quantity: "Wet",
     color: "#D1FAE5",
     textColor: "#065F46",
@@ -220,13 +221,13 @@ export default function CoddleScreen() {
       Animated.loop(
         Animated.sequence([
           Animated.timing(pulseAnim, {
-            toValue: 1.1,
-            duration: 1000,
+            toValue: 1.3,
+            duration: 800,
             useNativeDriver: true,
           }),
           Animated.timing(pulseAnim, {
             toValue: 1,
-            duration: 1000,
+            duration: 800,
             useNativeDriver: true,
           }),
         ])
@@ -241,12 +242,12 @@ export default function CoddleScreen() {
       Animated.sequence([
         Animated.timing(borderPulseAnim, {
           toValue: 1,
-          duration: 1500,
+          duration: 1000,
           useNativeDriver: false,
         }),
         Animated.timing(borderPulseAnim, {
           toValue: 0.3,
-          duration: 1500,
+          duration: 1000,
           useNativeDriver: false,
         }),
       ])
@@ -334,22 +335,111 @@ export default function CoddleScreen() {
     });
   };
 
+  const [sleepTimer, setSleepTimer] = useState({
+    isRunning: false,
+    startTime: null,
+    duration: 0,
+    showWakeInput: false,
+    wakeAlarmMinutes: 30,
+    isAlarmSet: false,
+  });
+
+  useEffect(() => {
+    let interval;
+    if (sleepTimer.isRunning) {
+      interval = setInterval(() => {
+        setSleepTimer((prev) => ({
+          ...prev,
+          duration: Math.floor((Date.now() - prev.startTime) / 1000),
+        }));
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [sleepTimer.isRunning]);
+
+  const toggleSleep = () => {
+    setSleepTimer((prev) => {
+      const newState = {
+        ...prev,
+        isRunning: !prev.isRunning,
+        startTime: !prev.isRunning ? Date.now() : null,
+        duration: 0,
+        showWakeInput: false,
+        isAlarmSet: false,
+      };
+
+      if (newState.isRunning) {
+        Animated.loop(
+          Animated.sequence([
+            Animated.timing(pulseAnim, {
+              toValue: 1.3,
+              duration: 800,
+              useNativeDriver: true,
+            }),
+            Animated.timing(pulseAnim, {
+              toValue: 1,
+              duration: 800,
+              useNativeDriver: true,
+            }),
+          ])
+        ).start();
+      } else {
+        pulseAnim.setValue(1);
+      }
+
+      return newState;
+    });
+  };
+
+  const toggleWakeInput = () => {
+    setSleepTimer((prev) => ({
+      ...prev,
+      showWakeInput: !prev.showWakeInput,
+      isAlarmSet: false,
+    }));
+  };
+
+  const updateWakeAlarmMinutes = (minutes) => {
+    const newMinutes = Math.max(1, Math.min(120, minutes || 30));
+    setSleepTimer((prev) => ({
+      ...prev,
+      wakeAlarmMinutes: newMinutes,
+    }));
+  };
+
+  const saveWakeMinutes = () => {
+    setSleepTimer((prev) => ({
+      ...prev,
+      showWakeInput: false,
+      isAlarmSet: true,
+    }));
+  };
+
   const renderTrackingCard = (item, index) => {
     const isLastCard = index === visibleTrackingData.length - 1;
     const isOddCount = visibleTrackingData.length % 2 !== 0;
 
-    // Function to render the quantity text based on card type
-    const renderQuantityText = () => {
-      if (item.type === "Breastfeed") {
-        if (breastfeedTimer.isRunning) {
-          const activeTime = formatTime(breastfeedTimer.seconds);
-          const totalTime = formatTime(breastfeedTimer.totalSeconds);
-          const leftTime = formatTime(breastfeedTimer.leftSeconds);
-          const rightTime = formatTime(breastfeedTimer.rightSeconds);
+    const renderSecondaryText = () => {
+      if (item.type === "Sleep") {
+        if (sleepTimer.isRunning) {
+          const hours = Math.floor(sleepTimer.duration / 3600);
+          const remainingSeconds = sleepTimer.duration % 3600;
+          const minutes = Math.floor(remainingSeconds / 60);
+          const seconds = remainingSeconds % 60;
+          return `${hours}:${minutes.toString().padStart(2, "0")}:${seconds
+            .toString()
+            .padStart(2, "0")}`;
+        }
+      }
+      return item.lastTime;
+    };
 
-          return `⏱ Total: ${totalTime}\n${
-            breastfeedTimer.activeSide === "left" ? "L" : "R"
-          }: ${activeTime}`;
+    const renderQuantityText = () => {
+      if (item.type === "Sleep") {
+        if (sleepTimer.isRunning) {
+          return "Sleeping";
         }
         return item.quantity;
       }
@@ -376,57 +466,104 @@ export default function CoddleScreen() {
               </View>
             )}
           </View>
-          {item.isOngoing && (
+          {item.type === "Sleep" && sleepTimer.isRunning && (
             <Animated.View
               style={[
                 styles.ongoingIndicator,
                 { transform: [{ scale: pulseAnim }] },
-                item.type === "Sleep" && styles.sleepIndicator,
+                styles.sleepIndicator,
               ]}
             >
               <IconSymbol size={16} name="moon.fill" color="#DC2626" />
             </Animated.View>
           )}
-          {item.type === "Breastfeed" && breastfeedTimer.isRunning && (
-            <Animated.View
-              style={[
-                styles.ongoingIndicator,
-                { transform: [{ scale: pulseAnim }] },
-                styles.breastfeedIndicator,
-              ]}
-            >
-              <IconSymbol size={16} name="drop.fill" color="#DC2626" />
-            </Animated.View>
-          )}
           <Text style={[styles.trackingText, { color: item.textColor }]}>
-            {item.type === "Bottle" && "🍼"}
-            {item.type === "Breastfeed" && "🤱"}
-            {item.type === "Solids" && "🥄"}
             {item.type === "Sleep" && "😴"}
-            {item.type === "Diaper" && "🧷"}
-            {item.type === "Pumping" && "🤱"}
-            {item.type === "Growth" && "📏"}
-            {item.type === "Activities" && "🎯"}
-            {item.type === "Milestones" && "🎉"}
-            {item.type === "Medications" && "💊"}
-            {item.lastTime}
+            {renderQuantityText()}
           </Text>
           <Text style={[styles.trackingText, { color: item.textColor }]}>
-            {item.type === "Bottle" && "🥛"}
-            {item.type === "Solids" && "🍽"}
             {item.type === "Sleep" && "⏰"}
-            {item.type === "Diaper" && "📝"}
-            {item.type === "Pumping" && "🥛"}
-            {item.type === "Growth" && "⚖️"}
-            {item.type === "Activities" && "🔄"}
-            {item.type === "Milestones" && "📸"}
-            {item.type === "Medications" && "⏲️"}
-            {renderQuantityText()}
+            {renderSecondaryText()}
           </Text>
         </View>
 
         <View style={styles.actionButtons}>
-          {item.isDiaper ? (
+          {item.type === "Sleep" ? (
+            <>
+              <TouchableOpacity
+                style={[
+                  styles.iconButton,
+                  sleepTimer.isRunning && styles.activeButton,
+                ]}
+                onPress={toggleSleep}
+              >
+                <IconSymbol
+                  size={20}
+                  name={sleepTimer.isRunning ? "stop.fill" : "moon.fill"}
+                  color={sleepTimer.isRunning ? "#DC2626" : "#6B7280"}
+                />
+              </TouchableOpacity>
+              {sleepTimer.isRunning &&
+                (sleepTimer.showWakeInput ? (
+                  <View style={styles.wakeAlarmContainer}>
+                    <TextInput
+                      style={styles.wakeAlarmInput}
+                      value={sleepTimer.wakeAlarmMinutes?.toString() || "30"}
+                      onChangeText={(text) => {
+                        const minutes = parseInt(text) || 30;
+                        updateWakeAlarmMinutes(minutes);
+                      }}
+                      keyboardType="numeric"
+                      maxLength={3}
+                      autoFocus
+                    />
+                    <Text style={styles.wakeAlarmUnit}>min</Text>
+                    <TouchableOpacity
+                      style={styles.tickButton}
+                      onPress={saveWakeMinutes}
+                    >
+                      <IconSymbol size={16} name="checkmark" color="#10B981" />
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={[
+                      styles.iconButton,
+                      sleepTimer.isAlarmSet && styles.alarmSetButton,
+                      sleepTimer.showWakeInput && styles.alarmActiveButton,
+                    ]}
+                    onPress={toggleWakeInput}
+                  >
+                    {sleepTimer.isAlarmSet ? (
+                      <>
+                        <IconSymbol size={16} name="clock" color="#10B981" />
+                        <Text style={styles.alarmSetText}>
+                          {sleepTimer.wakeAlarmMinutes}m
+                        </Text>
+                        <TouchableOpacity
+                          style={styles.cancelButton}
+                          onPress={() => {
+                            setSleepTimer((prev) => ({
+                              ...prev,
+                              isAlarmSet: false,
+                              wakeAlarmMinutes: 30,
+                            }));
+                          }}
+                        >
+                          <IconSymbol size={8} name="xmark" color="#DC2626" />
+                        </TouchableOpacity>
+                      </>
+                    ) : (
+                      <IconSymbol
+                        size={20}
+                        name="alarm"
+                        color={sleepTimer.showWakeInput ? "#10B981" : "#6B7280"}
+                      />
+                    )}
+                  </TouchableOpacity>
+                ))}
+            </>
+          ) : item.isDiaper ? (
             <>
               <TouchableOpacity style={styles.iconButton}>
                 <Text>💩</Text>
@@ -447,66 +584,6 @@ export default function CoddleScreen() {
                 <Text>🥛</Text>
               </TouchableOpacity>
             </>
-          ) : item.type === "Breastfeed" ? (
-            <>
-              <TouchableOpacity
-                style={[
-                  styles.iconButton,
-                  styles.suggestedButton,
-                  breastfeedTimer.activeSide === "left" &&
-                    styles.highlightedButton,
-                ]}
-                onPress={() => startTimer("left")}
-              >
-                <View style={styles.breastfeedButtonContent}>
-                  <IconSymbol
-                    size={20}
-                    name={
-                      breastfeedTimer.activeSide === "left"
-                        ? "stop.fill"
-                        : "play.fill"
-                    }
-                    color="#6B7280"
-                  />
-                  <Text style={styles.breastfeedButtonLabel}>L</Text>
-                </View>
-                <Animated.View
-                  style={[
-                    styles.pulsingBorder,
-                    {
-                      borderColor: borderPulseAnim.interpolate({
-                        inputRange: [0.3, 1],
-                        outputRange: [
-                          "rgba(157, 23, 77, 0.1)",
-                          "rgba(157, 23, 77, 1)",
-                        ],
-                      }),
-                    },
-                  ]}
-                />
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.iconButton,
-                  breastfeedTimer.activeSide === "right" &&
-                    styles.highlightedButton,
-                ]}
-                onPress={() => startTimer("right")}
-              >
-                <View style={styles.breastfeedButtonContent}>
-                  <IconSymbol
-                    size={20}
-                    name={
-                      breastfeedTimer.activeSide === "right"
-                        ? "stop.fill"
-                        : "play.fill"
-                    }
-                    color="#6B7280"
-                  />
-                  <Text style={styles.breastfeedButtonLabel}>R</Text>
-                </View>
-              </TouchableOpacity>
-            </>
           ) : (
             <TouchableOpacity style={styles.plusButton}>
               <IconSymbol size={24} name="plus" color="#1F2937" />
@@ -521,7 +598,11 @@ export default function CoddleScreen() {
     <View style={styles.summaryCard}>
       <View style={styles.summaryHeader}>
         <Text style={styles.sectionTitle}>Today's Summary</Text>
-        <TouchableOpacity style={styles.viewAllButton} activeOpacity={0.7}>
+        <TouchableOpacity
+          style={styles.viewAllButton}
+          activeOpacity={0.7}
+          onPress={() => router.push("/(tabs)/daily-logs")}
+        >
           <Text style={styles.viewAllText}>View All</Text>
           <IconSymbol size={14} name="chevron.right" color="#4B5563" />
         </TouchableOpacity>
@@ -1301,5 +1382,108 @@ const styles = StyleSheet.create({
   breastfeedIndicator: {
     backgroundColor: "rgba(220, 38, 38, 0.1)",
     borderColor: "rgba(220, 38, 38, 0.2)",
+  },
+  activeButton: {
+    backgroundColor: "#FEE2E2",
+  },
+  wakeAlarmContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F3F4F6",
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  wakeAlarmInput: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#1F2937",
+    width: 30,
+    textAlign: "center",
+    marginHorizontal: 4,
+  },
+  wakeAlarmUnit: {
+    fontSize: 12,
+    color: "#6B7280",
+  },
+  tickButton: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#D1FAE5",
+    justifyContent: "center",
+    alignItems: "center",
+    marginLeft: 4,
+  },
+  alarmSetButton: {
+    backgroundColor: "#D1FAE5",
+    borderColor: "#10B981",
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    minWidth: 60,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    position: "relative",
+  },
+  alarmActiveButton: {
+    backgroundColor: "#D1FAE5",
+    borderColor: "#10B981",
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    minWidth: 60,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    position: "relative",
+  },
+  alarmSetText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#10B981",
+  },
+  cancelButton: {
+    position: "absolute",
+    top: -6,
+    right: -6,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: "#FEE2E2",
+    borderColor: "#FCA5A5",
+    borderWidth: 0.5,
+    justifyContent: "center",
+    alignItems: "center",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 1,
+      },
+      android: {
+        elevation: 1,
+      },
+    }),
+  },
+  alarmButtonContainer: {
+    position: "relative",
+  },
+  alarmPulseBorder: {
+    position: "absolute",
+    top: -4,
+    left: -4,
+    right: -4,
+    bottom: -4,
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: "#10B981",
+    opacity: 0.5,
   },
 });
