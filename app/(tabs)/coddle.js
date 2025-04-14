@@ -271,6 +271,28 @@ export default function CoddleScreen() {
   );
 
   // Update timer functions
+  useEffect(() => {
+    if (breastfeedTimer.isRunning) {
+      timerRef.current = setInterval(() => {
+        setBreastfeedTimer((prev) => ({
+          ...prev,
+          seconds: prev.seconds + 1,
+          totalSeconds: prev.totalSeconds + 1,
+          [prev.activeSide === "left" ? "leftSeconds" : "rightSeconds"]:
+            prev[prev.activeSide === "left" ? "leftSeconds" : "rightSeconds"] +
+            1,
+        }));
+      }, 1000);
+    } else {
+      clearInterval(timerRef.current);
+    }
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, [breastfeedTimer.isRunning]);
+
   const startTimer = (side) => {
     if (breastfeedTimer.isRunning && breastfeedTimer.activeSide === side) {
       // Stop timer if clicking the same side
@@ -284,8 +306,7 @@ export default function CoddleScreen() {
     } else {
       // Start new timer
       if (breastfeedTimer.isRunning) {
-        clearInterval(timerRef.current);
-        // Save the time for the previous side
+        // Save the time for the previous side before switching
         setBreastfeedTimer((prev) => ({
           ...prev,
           [prev.activeSide === "left" ? "leftSeconds" : "rightSeconds"]:
@@ -293,20 +314,15 @@ export default function CoddleScreen() {
           seconds: 0,
           activeSide: side,
         }));
-      }
-      setBreastfeedTimer((prev) => ({
-        ...prev,
-        isRunning: true,
-        activeSide: side,
-        seconds: 0,
-      }));
-      timerRef.current = setInterval(() => {
+      } else {
+        // Start fresh timer
         setBreastfeedTimer((prev) => ({
           ...prev,
-          seconds: prev.seconds + 1,
-          totalSeconds: prev.totalSeconds + 1,
+          isRunning: true,
+          activeSide: side,
+          seconds: 0,
         }));
-      }, 1000);
+      }
     }
   };
 
@@ -315,15 +331,6 @@ export default function CoddleScreen() {
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
-
-  // Clean up timer on unmount
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
-    };
-  }, []);
 
   const handlePromptClick = (prompt) => {
     router.push({
@@ -534,6 +541,22 @@ export default function CoddleScreen() {
           </Animated.Text>
         );
       }
+      if (item.type === "Breastfeed") {
+        if (breastfeedTimer.isRunning) {
+          return (
+            <View style={styles.breastfeedTimerContainer}>
+              <Text style={[styles.trackingText, { color: item.textColor }]}>
+                Total: {formatTime(breastfeedTimer.totalSeconds)}
+              </Text>
+              <Text style={[styles.trackingText, { color: item.textColor }]}>
+                {breastfeedTimer.activeSide === "left" ? "Left" : "Right"}:{" "}
+                {formatTime(breastfeedTimer.seconds)}
+              </Text>
+            </View>
+          );
+        }
+        return item.quantity;
+      }
       return item.quantity;
     };
 
@@ -575,6 +598,9 @@ export default function CoddleScreen() {
           </Animated.Text>
         );
       }
+      if (item.type === "Breastfeed") {
+        return breastfeedTimer.isRunning ? null : item.lastTime;
+      }
       return item.lastTime;
     };
 
@@ -607,6 +633,17 @@ export default function CoddleScreen() {
               ]}
             >
               <IconSymbol size={16} name="moon.fill" color="#DC2626" />
+            </Animated.View>
+          )}
+          {item.type === "Breastfeed" && breastfeedTimer.isRunning && (
+            <Animated.View
+              style={[
+                styles.ongoingIndicator,
+                { transform: [{ scale: pulseAnim }] },
+                styles.breastfeedIndicator,
+              ]}
+            >
+              <IconSymbol size={16} name="heart.fill" color="#DC2626" />
             </Animated.View>
           )}
           <Text style={[styles.trackingText, { color: item.textColor }]}>
@@ -707,6 +744,61 @@ export default function CoddleScreen() {
                 <Text>♻️</Text>
               </TouchableOpacity>
             </>
+          ) : item.type === "Breastfeed" ? (
+            <View style={styles.breastfeedButtons}>
+              <TouchableOpacity
+                style={[
+                  styles.breastfeedButton,
+                  breastfeedTimer.isRunning &&
+                    breastfeedTimer.activeSide === "left" &&
+                    styles.highlightedButton,
+                ]}
+                onPress={() => startTimer("left")}
+              >
+                <View style={styles.breastfeedButtonContent}>
+                  <Text style={styles.breastfeedButtonLabel}>L</Text>
+                  {breastfeedTimer.isRunning &&
+                    breastfeedTimer.activeSide === "left" && (
+                      <IconSymbol size={14} name="play.fill" color="#1F2937" />
+                    )}
+                </View>
+                {breastfeedTimer.isRunning &&
+                  breastfeedTimer.activeSide === "left" && (
+                    <Animated.View
+                      style={[
+                        styles.pulsingBorder,
+                        { borderColor: "#FCD34D", opacity: borderPulseAnim },
+                      ]}
+                    />
+                  )}
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.breastfeedButton,
+                  breastfeedTimer.isRunning &&
+                    breastfeedTimer.activeSide === "right" &&
+                    styles.highlightedButton,
+                ]}
+                onPress={() => startTimer("right")}
+              >
+                <View style={styles.breastfeedButtonContent}>
+                  <Text style={styles.breastfeedButtonLabel}>R</Text>
+                  {breastfeedTimer.isRunning &&
+                    breastfeedTimer.activeSide === "right" && (
+                      <IconSymbol size={14} name="play.fill" color="#1F2937" />
+                    )}
+                </View>
+                {breastfeedTimer.isRunning &&
+                  breastfeedTimer.activeSide === "right" && (
+                    <Animated.View
+                      style={[
+                        styles.pulsingBorder,
+                        { borderColor: "#FCD34D", opacity: borderPulseAnim },
+                      ]}
+                    />
+                  )}
+              </TouchableOpacity>
+            </View>
           ) : item.isBottle ? (
             <>
               {bottleInput.showInput ? (
@@ -1193,7 +1285,7 @@ const styles = StyleSheet.create({
     width: "48.2%",
     borderRadius: 16,
     padding: 14,
-    minHeight: 120,
+    height: 150,
     justifyContent: "space-between",
     backgroundColor: "white",
     ...Platform.select({
@@ -1212,18 +1304,18 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 12,
+    marginBottom: 6,
   },
   trackingType: {
     fontSize: 15,
     fontWeight: "600",
     flex: 1,
-    marginBottom: 2,
+    marginBottom: 0,
     letterSpacing: 0.2,
   },
   trackingText: {
     fontSize: 13,
-    marginBottom: 6,
+    marginBottom: 2,
     opacity: 1,
     lineHeight: 18,
     flexDirection: "row",
@@ -1376,10 +1468,12 @@ const styles = StyleSheet.create({
   actionButtons: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 10,
-    paddingTop: 8,
+    marginTop: "auto",
+    paddingTop: 6,
     borderTopWidth: 1,
     borderTopColor: "rgba(0,0,0,0.05)",
+    minHeight: 44,
+    alignItems: "center",
   },
   iconButton: {
     width: 48,
@@ -1603,54 +1697,49 @@ const styles = StyleSheet.create({
   breastfeedButtons: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 10,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(0,0,0,0.05)",
+    width: "100%",
+    gap: 8,
+    alignItems: "center",
+    height: 36,
   },
   breastfeedButton: {
     flex: 1,
-    marginHorizontal: 4,
+    height: 36,
     backgroundColor: "white",
-    borderRadius: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
+    position: "relative",
+    borderWidth: 1,
+    borderColor: "#F3F4F6",
+    maxWidth: 80,
+    paddingVertical: 0,
   },
   breastfeedButtonContent: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: 6,
+    height: "100%",
+    justifyContent: "center",
   },
   breastfeedButtonLabel: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "600",
     color: "#1F2937",
     letterSpacing: 0.2,
   },
   highlightedButton: {
     backgroundColor: "#FCD34D",
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.2,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 4,
-      },
-    }),
+    borderColor: "#F59E0B",
+  },
+  pulsingBorder: {
+    position: "absolute",
+    top: -2,
+    left: -2,
+    right: -2,
+    bottom: -2,
+    borderRadius: 16,
+    borderWidth: 1,
   },
   suggestedButton: {
     borderWidth: 0.5,
@@ -1662,16 +1751,6 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: -4,
     right: -4,
-  },
-  pulsingBorder: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderWidth: 0.5,
-    borderRadius: 18,
-    backgroundColor: "transparent",
   },
   breastfeedIndicator: {
     backgroundColor: "rgba(220, 38, 38, 0.1)",
@@ -1797,5 +1876,9 @@ const styles = StyleSheet.create({
   },
   milkTypeTextActive: {
     color: "#9D174D",
+  },
+  breastfeedTimerContainer: {
+    gap: 2,
+    marginBottom: 2,
   },
 });
