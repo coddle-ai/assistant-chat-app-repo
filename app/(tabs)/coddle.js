@@ -20,93 +20,6 @@ import { Colors } from "@/constants/Colors";
 import { useColorScheme } from "@/hooks/useColorScheme";
 import { useRouter } from "expo-router";
 
-const trackingData = [
-  {
-    type: "Bottle",
-    activityType: "Bottle",
-    lastTime: "1h ago",
-    quantity: "120ml",
-    color: "#EBF5FF",
-    textColor: "#1E40AF",
-    isBottle: true,
-    isDue: true,
-  },
-  {
-    type: "Breastfeed",
-    activityType: "Breastfeeding",
-    lastTime: "2h ago",
-    quantity: "10 min",
-    color: "#FCE7F3",
-    textColor: "#9D174D",
-  },
-  {
-    type: "Solids",
-    activityType: "Solid",
-    lastTime: "3h ago",
-    quantity: "Banana",
-    color: "#FEF3C7",
-    textColor: "#92400E",
-  },
-  {
-    type: "Sleep",
-    activityType: "Sleep",
-    lastTime: "2h 39m ago",
-    quantity: "1h 23m",
-    color: "#CCFBF1",
-    textColor: "#134E4A",
-    isOngoing: true,
-  },
-  {
-    type: "Diaper",
-    activityType: "Diaper",
-    lastTime: "1h 30m ago",
-    quantity: "Wet",
-    color: "#D1FAE5",
-    textColor: "#065F46",
-    isDiaper: true,
-  },
-  {
-    type: "Pumping",
-    activityType: "Pumping",
-    lastTime: "30m ago",
-    quantity: "150ml",
-    color: "#FEE2E2",
-    textColor: "#991B1B",
-  },
-  {
-    type: "Growth",
-    activityType: "Growth",
-    lastTime: "2d ago",
-    quantity: "7.2 kg",
-    color: "#F3E8FF",
-    textColor: "#6B21A8",
-  },
-  {
-    type: "Activities",
-    activityType: "Activities",
-    lastTime: "1d ago",
-    quantity: "Tummy time",
-    color: "#E0F2FE",
-    textColor: "#075985",
-  },
-  {
-    type: "Milestones",
-    activityType: "Milestones",
-    lastTime: "5d ago",
-    quantity: "First word",
-    color: "#FFE4E6",
-    textColor: "#9F1239",
-  },
-  {
-    type: "Medications",
-    activityType: "Medications",
-    lastTime: "12h ago",
-    quantity: "Vitamin D",
-    color: "#F1F5F9",
-    textColor: "#334155",
-  },
-];
-
 const prompts = [
   {
     type: "question",
@@ -162,6 +75,93 @@ export default function CoddleScreen() {
     Milestones: false,
     Medications: false,
   });
+
+  const [trackingData, setTrackingData] = useState([
+    {
+      type: "Bottle",
+      activityType: "Bottle",
+      lastTime: "1h ago",
+      quantity: "120ml",
+      color: "#EBF5FF",
+      textColor: "#1E40AF",
+      isBottle: true,
+      isDue: true,
+    },
+    {
+      type: "Breastfeed",
+      activityType: "Breastfeeding",
+      lastTime: "2h ago",
+      quantity: "10 min",
+      color: "#FCE7F3",
+      textColor: "#9D174D",
+    },
+    {
+      type: "Solids",
+      activityType: "Solid",
+      lastTime: "3h ago",
+      quantity: "Banana",
+      color: "#FEF3C7",
+      textColor: "#92400E",
+    },
+    {
+      type: "Sleep",
+      activityType: "Sleep",
+      lastTime: "2h 39m ago",
+      quantity: "1h 23m",
+      color: "#CCFBF1",
+      textColor: "#134E4A",
+      isOngoing: true,
+    },
+    {
+      type: "Diaper",
+      activityType: "Diaper",
+      lastTime: "1h 30m ago",
+      quantity: "Wet",
+      color: "#D1FAE5",
+      textColor: "#065F46",
+      isDiaper: true,
+    },
+    {
+      type: "Pumping",
+      activityType: "Pumping",
+      lastTime: "30m ago",
+      quantity: "150ml",
+      color: "#FEE2E2",
+      textColor: "#991B1B",
+    },
+    {
+      type: "Growth",
+      activityType: "Growth",
+      lastTime: "2d ago",
+      quantity: "7.2 kg",
+      color: "#F3E8FF",
+      textColor: "#6B21A8",
+    },
+    {
+      type: "Activities",
+      activityType: "Activities",
+      lastTime: "1d ago",
+      quantity: "Tummy time",
+      color: "#E0F2FE",
+      textColor: "#075985",
+    },
+    {
+      type: "Milestones",
+      activityType: "Milestones",
+      lastTime: "5d ago",
+      quantity: "First word",
+      color: "#FFE4E6",
+      textColor: "#9F1239",
+    },
+    {
+      type: "Medications",
+      activityType: "Medications",
+      lastTime: "12h ago",
+      quantity: "Vitamin D",
+      color: "#F1F5F9",
+      textColor: "#334155",
+    },
+  ]);
 
   // Add new Animated Values for FAB position with initial values
   const pan = useRef(
@@ -344,82 +344,198 @@ export default function CoddleScreen() {
     isAlarmSet: false,
   });
 
-  useEffect(() => {
-    let interval;
-    if (sleepTimer.isRunning) {
-      interval = setInterval(() => {
-        setSleepTimer((prev) => ({
-          ...prev,
-          duration: Math.floor((Date.now() - prev.startTime) / 1000),
-        }));
-      }, 1000);
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [sleepTimer.isRunning]);
+  const [bottleInput, setBottleInput] = useState({
+    showInput: false,
+    amount: 110,
+    isSet: false,
+    milkType: "Formula",
+  });
 
-  const toggleSleep = () => {
-    setSleepTimer((prev) => {
-      const newState = {
+  const [breastInput, setBreastInput] = useState({
+    showInput: false,
+    amount: 120,
+    isSet: false,
+  });
+
+  const bottleAmountAnim = useRef(new Animated.Value(0)).current;
+  const timeAnim = useRef(new Animated.Value(0)).current;
+
+  const animateBottleAmount = () => {
+    bottleAmountAnim.setValue(0);
+    Animated.spring(bottleAmountAnim, {
+      toValue: 1,
+      duration: 600,
+      friction: 8,
+      tension: 40,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const animateTime = () => {
+    timeAnim.setValue(0);
+    Animated.spring(timeAnim, {
+      toValue: 1,
+      duration: 600,
+      friction: 8,
+      tension: 40,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const toggleBottleInput = () => {
+    setBottleInput((prev) => ({
+      ...prev,
+      showInput: !prev.showInput,
+      isSet: false,
+    }));
+    // Hide breast input when showing bottle input
+    if (!bottleInput.showInput) {
+      setBreastInput((prev) => ({
         ...prev,
-        isRunning: !prev.isRunning,
-        startTime: !prev.isRunning ? Date.now() : null,
-        duration: 0,
-        showWakeInput: false,
-        isAlarmSet: false,
-      };
-
-      if (newState.isRunning) {
-        Animated.loop(
-          Animated.sequence([
-            Animated.timing(pulseAnim, {
-              toValue: 1.3,
-              duration: 800,
-              useNativeDriver: true,
-            }),
-            Animated.timing(pulseAnim, {
-              toValue: 1,
-              duration: 800,
-              useNativeDriver: true,
-            }),
-          ])
-        ).start();
-      } else {
-        pulseAnim.setValue(1);
-      }
-
-      return newState;
-    });
+        showInput: false,
+        isSet: false,
+      }));
+    }
   };
 
-  const toggleWakeInput = () => {
-    setSleepTimer((prev) => ({
+  const toggleBreastInput = () => {
+    setBreastInput((prev) => ({
       ...prev,
-      showWakeInput: !prev.showWakeInput,
-      isAlarmSet: false,
+      showInput: !prev.showInput,
+      isSet: false,
+    }));
+    // Hide bottle input when showing breast input
+    if (!breastInput.showInput) {
+      setBottleInput((prev) => ({
+        ...prev,
+        showInput: false,
+        isSet: false,
+      }));
+    }
+  };
+
+  const updateBottleAmount = (amount) => {
+    const newAmount = Math.max(1, Math.min(1000, amount || 110));
+    setBottleInput((prev) => ({
+      ...prev,
+      amount: newAmount,
     }));
   };
 
-  const updateWakeAlarmMinutes = (minutes) => {
-    const newMinutes = Math.max(1, Math.min(120, minutes || 30));
-    setSleepTimer((prev) => ({
+  const toggleMilkType = () => {
+    setBottleInput((prev) => ({
       ...prev,
-      wakeAlarmMinutes: newMinutes,
+      milkType: prev.milkType === "Formula" ? "Breastmilk" : "Formula",
     }));
   };
 
-  const saveWakeMinutes = () => {
-    setSleepTimer((prev) => ({
+  const saveBottleAmount = () => {
+    setBottleInput((prev) => ({
       ...prev,
-      showWakeInput: false,
-      isAlarmSet: true,
+      showInput: false,
+      isSet: false,
     }));
+    // Hide breast input when saving bottle amount
+    setBreastInput((prev) => ({
+      ...prev,
+      showInput: false,
+      isSet: false,
+    }));
+    // Update the tracking data with the new amount and milk type
+    setTrackingData((prevData) =>
+      prevData.map((item) => {
+        if (item.type === "Bottle") {
+          return {
+            ...item,
+            quantity: `${bottleInput.amount}ml · ${bottleInput.milkType}`,
+            lastTime: "Just now",
+          };
+        }
+        return item;
+      })
+    );
+    // Trigger both animations
+    animateBottleAmount();
+    animateTime();
+  };
+
+  const updateBreastAmount = (amount) => {
+    const newAmount = Math.max(1, Math.min(1000, amount || 120));
+    setBreastInput((prev) => ({
+      ...prev,
+      amount: newAmount,
+    }));
+  };
+
+  const saveBreastAmount = () => {
+    setBreastInput((prev) => ({
+      ...prev,
+      showInput: false,
+      isSet: true,
+    }));
+    // Hide bottle input when saving breast amount
+    setBottleInput((prev) => ({
+      ...prev,
+      showInput: false,
+      isSet: false,
+    }));
+    // Update the tracking data with the new amount
+    setTrackingData((prevData) =>
+      prevData.map((item) => {
+        if (item.type === "Bottle") {
+          return {
+            ...item,
+            quantity: `${breastInput.amount}ml · Breastmilk`,
+            lastTime: "Just now",
+          };
+        }
+        return item;
+      })
+    );
+    // Trigger animations
+    animateBottleAmount();
+    animateTime();
   };
 
   const renderTrackingCard = (item, index) => {
     const isLastCard = index === visibleTrackingData.length - 1;
     const isOddCount = visibleTrackingData.length % 2 !== 0;
+
+    const renderQuantityText = () => {
+      if (item.type === "Sleep") {
+        if (sleepTimer.isRunning) {
+          return "Sleeping";
+        }
+        return item.quantity;
+      }
+      if (item.type === "Bottle") {
+        return (
+          <Animated.Text
+            style={[
+              styles.trackingText,
+              { color: item.textColor },
+              {
+                transform: [
+                  {
+                    scale: bottleAmountAnim.interpolate({
+                      inputRange: [0, 0.4, 0.8, 1],
+                      outputRange: [0.95, 1.05, 1.02, 1],
+                    }),
+                  },
+                ],
+                opacity: bottleAmountAnim.interpolate({
+                  inputRange: [0, 0.3, 1],
+                  outputRange: [0.6, 1, 1],
+                }),
+              },
+            ]}
+          >
+            {item.quantity}
+          </Animated.Text>
+        );
+      }
+      return item.quantity;
+    };
 
     const renderSecondaryText = () => {
       if (item.type === "Sleep") {
@@ -433,17 +549,33 @@ export default function CoddleScreen() {
             .padStart(2, "0")}`;
         }
       }
-      return item.lastTime;
-    };
-
-    const renderQuantityText = () => {
-      if (item.type === "Sleep") {
-        if (sleepTimer.isRunning) {
-          return "Sleeping";
-        }
-        return item.quantity;
+      if (item.type === "Bottle") {
+        return (
+          <Animated.Text
+            style={[
+              styles.trackingText,
+              { color: item.textColor },
+              {
+                transform: [
+                  {
+                    scale: timeAnim.interpolate({
+                      inputRange: [0, 0.4, 0.8, 1],
+                      outputRange: [0.95, 1.05, 1.02, 1],
+                    }),
+                  },
+                ],
+                opacity: timeAnim.interpolate({
+                  inputRange: [0, 0.3, 1],
+                  outputRange: [0.6, 1, 1],
+                }),
+              },
+            ]}
+          >
+            {item.lastTime}
+          </Animated.Text>
+        );
       }
-      return item.quantity;
+      return item.lastTime;
     };
 
     return (
@@ -577,12 +709,101 @@ export default function CoddleScreen() {
             </>
           ) : item.isBottle ? (
             <>
-              <TouchableOpacity style={styles.iconButton}>
-                <Text>🍼</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.iconButton}>
-                <Text>🥛</Text>
-              </TouchableOpacity>
+              {bottleInput.showInput ? (
+                <View style={styles.wakeAlarmContainer}>
+                  <TextInput
+                    style={styles.wakeAlarmInput}
+                    value={bottleInput.amount?.toString() || "110"}
+                    onChangeText={(text) => {
+                      const amount = parseInt(text) || 110;
+                      updateBottleAmount(amount);
+                    }}
+                    keyboardType="numeric"
+                    maxLength={4}
+                    autoFocus
+                  />
+                  <Text style={styles.wakeAlarmUnit}>ml</Text>
+                  <TouchableOpacity
+                    style={[
+                      styles.milkTypeButton,
+                      bottleInput.milkType === "Breastmilk" &&
+                        styles.milkTypeButtonActive,
+                    ]}
+                    onPress={toggleMilkType}
+                  >
+                    <Text
+                      style={[
+                        styles.milkTypeText,
+                        bottleInput.milkType === "Breastmilk" &&
+                          styles.milkTypeTextActive,
+                      ]}
+                    >
+                      {bottleInput.milkType === "Formula" ? "🍼" : "🤱"}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.tickButton}
+                    onPress={saveBottleAmount}
+                  >
+                    <IconSymbol size={16} name="checkmark" color="#10B981" />
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                !breastInput.showInput && (
+                  <TouchableOpacity
+                    style={[
+                      styles.iconButton,
+                      bottleInput.showInput && styles.alarmActiveButton,
+                    ]}
+                    onPress={toggleBottleInput}
+                  >
+                    <Text>🍼</Text>
+                  </TouchableOpacity>
+                )
+              )}
+              {breastInput.showInput ? (
+                <View style={styles.wakeAlarmContainer}>
+                  <TextInput
+                    style={styles.wakeAlarmInput}
+                    value={breastInput.amount?.toString() || "120"}
+                    onChangeText={(text) => {
+                      const amount = parseInt(text) || 120;
+                      updateBreastAmount(amount);
+                    }}
+                    keyboardType="numeric"
+                    maxLength={4}
+                    autoFocus
+                  />
+                  <Text style={styles.wakeAlarmUnit}>ml</Text>
+                  <View
+                    style={[styles.milkTypeButton, styles.milkTypeButtonActive]}
+                  >
+                    <Text
+                      style={[styles.milkTypeText, styles.milkTypeTextActive]}
+                    >
+                      🤱
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.tickButton}
+                    onPress={saveBreastAmount}
+                  >
+                    <IconSymbol size={16} name="checkmark" color="#10B981" />
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                !bottleInput.showInput && (
+                  <TouchableOpacity
+                    style={[
+                      styles.iconButton,
+                      breastInput.showInput && styles.alarmActiveButton,
+                    ]}
+                    onPress={toggleBreastInput}
+                  >
+                    <Text>🤱</Text>
+                  </TouchableOpacity>
+                )
+              )}
             </>
           ) : (
             <TouchableOpacity style={styles.plusButton}>
@@ -675,6 +896,79 @@ export default function CoddleScreen() {
       </View>
     </Modal>
   );
+
+  useEffect(() => {
+    let interval;
+    if (sleepTimer.isRunning) {
+      interval = setInterval(() => {
+        setSleepTimer((prev) => ({
+          ...prev,
+          duration: Math.floor((Date.now() - prev.startTime) / 1000),
+        }));
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [sleepTimer.isRunning]);
+
+  const toggleSleep = () => {
+    setSleepTimer((prev) => {
+      const newState = {
+        ...prev,
+        isRunning: !prev.isRunning,
+        startTime: !prev.isRunning ? Date.now() : null,
+        duration: 0,
+        showWakeInput: false,
+        isAlarmSet: false,
+      };
+
+      if (newState.isRunning) {
+        Animated.loop(
+          Animated.sequence([
+            Animated.timing(pulseAnim, {
+              toValue: 1.3,
+              duration: 800,
+              useNativeDriver: true,
+            }),
+            Animated.timing(pulseAnim, {
+              toValue: 1,
+              duration: 800,
+              useNativeDriver: true,
+            }),
+          ])
+        ).start();
+      } else {
+        pulseAnim.setValue(1);
+      }
+
+      return newState;
+    });
+  };
+
+  const toggleWakeInput = () => {
+    setSleepTimer((prev) => ({
+      ...prev,
+      showWakeInput: !prev.showWakeInput,
+      isAlarmSet: false,
+    }));
+  };
+
+  const updateWakeAlarmMinutes = (minutes) => {
+    const newMinutes = Math.max(1, Math.min(120, minutes || 30));
+    setSleepTimer((prev) => ({
+      ...prev,
+      wakeAlarmMinutes: newMinutes,
+    }));
+  };
+
+  const saveWakeMinutes = () => {
+    setSleepTimer((prev) => ({
+      ...prev,
+      showWakeInput: false,
+      isAlarmSet: true,
+    }));
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -930,7 +1224,7 @@ const styles = StyleSheet.create({
   trackingText: {
     fontSize: 13,
     marginBottom: 6,
-    opacity: 0.9,
+    opacity: 1,
     lineHeight: 18,
     flexDirection: "row",
     alignItems: "center",
@@ -1485,5 +1779,23 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "#10B981",
     opacity: 0.5,
+  },
+  milkTypeButton: {
+    width: 32,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#F3F4F6",
+    justifyContent: "center",
+    alignItems: "center",
+    marginLeft: 4,
+  },
+  milkTypeButtonActive: {
+    backgroundColor: "#FCE7F3",
+  },
+  milkTypeText: {
+    fontSize: 14,
+  },
+  milkTypeTextActive: {
+    color: "#9D174D",
   },
 });
