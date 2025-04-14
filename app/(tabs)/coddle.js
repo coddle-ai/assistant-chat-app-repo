@@ -611,9 +611,111 @@ export default function CoddleScreen() {
     animateDiaperText();
   };
 
+  // Replace showFoodModal state with expanded state for the Solids card
+  const [expandedCard, setExpandedCard] = useState(null);
+  const [foodSearchQuery, setFoodSearchQuery] = useState("");
+  const [recentFoods] = useState([
+    { id: 1, name: "Banana", icon: "🍌" },
+    { id: 2, name: "Sweet Potato", icon: "🍠" },
+    { id: 3, name: "Avocado", icon: "🥑" },
+    { id: 4, name: "Carrot", icon: "🥕" },
+    { id: 5, name: "Apple", icon: "🍎" },
+    { id: 6, name: "Yogurt", icon: "🥄" },
+    { id: 7, name: "Peas", icon: "🥄" },
+    { id: 8, name: "Milk", icon: "🥛" },
+  ]);
+
+  const selectFood = (foodName) => {
+    setTrackingData((prevData) =>
+      prevData.map((item) => {
+        if (item.type === "Solids") {
+          return {
+            ...item,
+            quantity: foodName,
+            lastTime: "Just now",
+          };
+        }
+        return item;
+      })
+    );
+    setExpandedCard(null);
+    setFoodSearchQuery("");
+  };
+
   const renderTrackingCard = (item, index) => {
     const isLastCard = index === visibleTrackingData.length - 1;
     const isOddCount = visibleTrackingData.length % 2 !== 0;
+    const isExpanded = expandedCard === item.type;
+
+    const renderFoodSelection = () => {
+      const filteredFoods = foodSearchQuery
+        ? recentFoods.filter((food) =>
+            food.name.toLowerCase().includes(foodSearchQuery.toLowerCase())
+          )
+        : [];
+
+      return (
+        <View style={styles.foodSelectionContainer}>
+          <View style={styles.searchInputContainer}>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Type food name"
+              value={foodSearchQuery}
+              onChangeText={setFoodSearchQuery}
+              autoFocus
+            />
+            {foodSearchQuery.trim() && (
+              <TouchableOpacity
+                style={styles.searchAddButton}
+                onPress={() => selectFood(foodSearchQuery)}
+              >
+                <IconSymbol size={20} name="plus" color="#F59E0B" />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {!foodSearchQuery && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.recentFoodsScroll}
+            >
+              {recentFoods.map((food) => (
+                <TouchableOpacity
+                  key={food.id}
+                  style={styles.recentFoodItem}
+                  onPress={() => selectFood(food.name)}
+                >
+                  <Text style={styles.recentFoodIcon}>{food.icon}</Text>
+                  <Text style={styles.recentFoodName}>{food.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
+
+          {foodSearchQuery && filteredFoods.length > 0 && (
+            <ScrollView
+              style={styles.searchResultsScroll}
+              showsVerticalScrollIndicator={false}
+            >
+              {filteredFoods.map((food) => (
+                <TouchableOpacity
+                  key={food.id}
+                  style={styles.searchResultItem}
+                  onPress={() => selectFood(food.name)}
+                >
+                  <View style={styles.searchResultContent}>
+                    <Text style={styles.searchResultIcon}>{food.icon}</Text>
+                    <Text style={styles.searchResultName}>{food.name}</Text>
+                  </View>
+                  <IconSymbol size={20} name="plus" color="#F59E0B" />
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
+        </View>
+      );
+    };
 
     const renderQuantityText = () => {
       if (item.type === "Sleep") {
@@ -822,6 +924,7 @@ export default function CoddleScreen() {
           styles.trackingCard,
           { backgroundColor: item.color },
           isLastCard && isOddCount && styles.fullWidthCard,
+          isExpanded && styles.expandedCard,
         ]}
       >
         <View>
@@ -1143,12 +1246,19 @@ export default function CoddleScreen() {
               )}
             </>
           ) : item.type === "Solids" ? (
-            <TouchableOpacity
-              style={styles.plusButton}
-              onPress={() => setShowFoodModal(true)}
-            >
-              <IconSymbol size={24} name="plus" color="#1F2937" />
-            </TouchableOpacity>
+            isExpanded ? (
+              renderFoodSelection()
+            ) : (
+              <TouchableOpacity
+                style={styles.plusButton}
+                onPress={() => {
+                  setExpandedCard("Solids");
+                  setFoodSearchQuery("");
+                }}
+              >
+                <IconSymbol size={24} name="plus" color="#1F2937" />
+              </TouchableOpacity>
+            )
           ) : (
             <TouchableOpacity style={styles.plusButton}>
               <IconSymbol size={24} name="plus" color="#1F2937" />
@@ -1241,119 +1351,6 @@ export default function CoddleScreen() {
     </Modal>
   );
 
-  // Update the food modal state and recent foods
-  const [showFoodModal, setShowFoodModal] = useState(false);
-  const [foodSearchQuery, setFoodSearchQuery] = useState("");
-  const [recentFoods] = useState([
-    { id: 1, name: "Banana", icon: "🍌" },
-    { id: 2, name: "Sweet Potato", icon: "🍠" },
-    { id: 3, name: "Avocado", icon: "🥑" },
-    { id: 4, name: "Carrot", icon: "🥕" },
-    { id: 5, name: "Apple", icon: "🍎" },
-    { id: 6, name: "Yogurt", icon: "🥄" },
-    { id: 7, name: "Peas", icon: "🥄" },
-    { id: 8, name: "Milk", icon: "🥛" },
-  ]);
-
-  // Update the renderFoodModal function
-  const renderFoodModal = () => {
-    const filteredFoods = foodSearchQuery
-      ? recentFoods.filter((food) =>
-          food.name.toLowerCase().includes(foodSearchQuery.toLowerCase())
-        )
-      : [];
-
-    return (
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={showFoodModal}
-        onRequestClose={() => {
-          setFoodSearchQuery("");
-          setShowFoodModal(false);
-        }}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { paddingBottom: 0 }]}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Add Food</Text>
-              <TouchableOpacity
-                style={styles.closeButton}
-                onPress={() => {
-                  setFoodSearchQuery("");
-                  setShowFoodModal(false);
-                }}
-              >
-                <IconSymbol size={24} name="xmark" color="#4B5563" />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.searchContainer}>
-              <View style={styles.searchInputContainer}>
-                <TextInput
-                  style={styles.searchInput}
-                  placeholder="Type food name"
-                  value={foodSearchQuery}
-                  onChangeText={setFoodSearchQuery}
-                  autoFocus
-                />
-                {foodSearchQuery.trim() && (
-                  <TouchableOpacity
-                    style={styles.searchAddButton}
-                    onPress={() => selectFood(foodSearchQuery)}
-                  >
-                    <IconSymbol size={20} name="plus" color="#F59E0B" />
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
-
-            <ScrollView
-              style={styles.foodScrollView}
-              showsVerticalScrollIndicator={false}
-            >
-              {!foodSearchQuery && (
-                <View style={styles.sectionContainer}>
-                  <Text style={styles.sectionTitle}>Recent Foods</Text>
-                  <View style={styles.recentFoodsGrid}>
-                    {recentFoods.map((food) => (
-                      <TouchableOpacity
-                        key={food.id}
-                        style={styles.recentFoodItem}
-                        onPress={() => selectFood(food.name)}
-                      >
-                        <Text style={styles.recentFoodIcon}>{food.icon}</Text>
-                        <Text style={styles.recentFoodName}>{food.name}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
-              )}
-
-              {foodSearchQuery && filteredFoods.length > 0 && (
-                <View style={styles.searchResultsContainer}>
-                  {filteredFoods.map((food) => (
-                    <TouchableOpacity
-                      key={food.id}
-                      style={styles.searchResultItem}
-                      onPress={() => selectFood(food.name)}
-                    >
-                      <View style={styles.searchResultContent}>
-                        <Text style={styles.searchResultIcon}>{food.icon}</Text>
-                        <Text style={styles.searchResultName}>{food.name}</Text>
-                      </View>
-                      <IconSymbol size={20} name="plus" color="#F59E0B" />
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-    );
-  };
-
   useEffect(() => {
     let interval;
     if (sleepTimer.isRunning) {
@@ -1425,22 +1422,6 @@ export default function CoddleScreen() {
       showWakeInput: false,
       isAlarmSet: true,
     }));
-  };
-
-  const selectFood = (foodName) => {
-    setTrackingData((prevData) =>
-      prevData.map((item) => {
-        if (item.type === "Solids") {
-          return {
-            ...item,
-            quantity: foodName,
-            lastTime: "Just now",
-          };
-        }
-        return item;
-      })
-    );
-    setShowFoodModal(false);
   };
 
   return (
@@ -1569,7 +1550,6 @@ export default function CoddleScreen() {
         </TouchableOpacity>
       </Animated.View>
       {renderActivityModal()}
-      {renderFoodModal()}
     </SafeAreaView>
   );
 }
@@ -2465,5 +2445,82 @@ const styles = StyleSheet.create({
   searchResultCategory: {
     fontSize: 13,
     color: "#6B7280",
+  },
+  expandedCard: {
+    width: "100%",
+    height: "auto",
+    minHeight: 200,
+  },
+  foodSelectionContainer: {
+    width: "100%",
+    paddingTop: 12,
+    gap: 12,
+  },
+  searchInputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    paddingLeft: 12,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: "#1F2937",
+    paddingVertical: 12,
+  },
+  searchAddButton: {
+    width: 44,
+    height: 44,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#FEF3C7",
+    borderRadius: 12,
+  },
+  recentFoodsScroll: {
+    marginHorizontal: -14,
+    paddingHorizontal: 14,
+  },
+  recentFoodItem: {
+    alignItems: "center",
+    marginRight: 16,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    padding: 8,
+    width: 72,
+  },
+  recentFoodIcon: {
+    fontSize: 32,
+    marginBottom: 4,
+  },
+  recentFoodName: {
+    fontSize: 12,
+    color: "#1F2937",
+    textAlign: "center",
+  },
+  searchResultsScroll: {
+    maxHeight: 200,
+  },
+  searchResultItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 8,
+    justifyContent: "space-between",
+  },
+  searchResultContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  searchResultIcon: {
+    fontSize: 24,
+  },
+  searchResultName: {
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#1F2937",
   },
 });
