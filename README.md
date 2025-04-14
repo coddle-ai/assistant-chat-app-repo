@@ -1,107 +1,50 @@
-# Assistant Chat App with Streaming
+# Welcome to your Expo app 👋
 
-A React Native chat application featuring real-time streaming responses and advanced message handling.
+This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
 
-## Key Features
+## Get started
 
-### Streaming Chat Screen
+1. Install dependencies
 
-The app's core feature is the streaming chat implementation that provides:
+   ```bash
+   npm install
+   ```
 
-- Real-time message streaming with typing indicators
-- Smooth message updates without flashing
-- Robust error handling and recovery
-- Detailed logging for debugging
-- Rate limiting and backoff mechanisms
+2. Start the app
 
-### Technical Highlights
+   ```bash
+    npx expo start
+   ```
 
-#### StreamChatScreen
+In the output, you'll find options to open the app in a
 
-- **Message State Management**: Efficient handling of streaming messages with proper state transitions
-- **Error Resilience**: Graceful handling of API failures and network issues
-- **Performance Optimizations**:
-  - Message chunk processing
-  - Smart scrolling behavior
-  - Rate limiting with exponential backoff
+- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
+- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
+- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
+- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
 
-#### Streaming API Service
+You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
 
-- **Polling Implementation**: Efficient polling mechanism for real-time updates
-- **Message Processing**: Advanced content extraction and formatting
-- **Error Recovery**: Automatic retry mechanisms and fallback strategies
+## Get a fresh project
 
-## Getting Started
-
-1. Clone the repository:
+When you're ready, run:
 
 ```bash
-git clone https://github.com/coddle-ai/assistant-chat-app-repo.git
+npm run reset-project
 ```
 
-2. Install dependencies:
+This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
 
-```bash
-npm install
-# or
-yarn install
-```
+## Learn more
 
-3. Start the development server:
+To learn more about developing your project with Expo, look at the following resources:
 
-```bash
-npm start
-# or
-yarn start
-```
+- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
+- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
 
-## Project Structure
+## Join the community
 
-```
-├── app/
-│   └── (tabs)/
-│       └── streamchat.js      # Streaming chat tab entry point
-├── screens/
-│   └── StreamChatScreen.js    # Main streaming chat implementation
-├── services/
-│   └── streamingApiService.js # Streaming API implementation
-└── components/
-    └── MessageBubble.js       # Message display component
-```
+Join our community of developers creating universal apps.
 
-## Implementation Details
-
-### StreamChatScreen
-
-The main streaming chat screen implements:
-
-- Real-time message updates
-- Streaming state management
-- Error handling and recovery
-- Performance optimizations
-
-### Message Handling
-
-- Efficient message state updates
-- Smooth UI transitions
-- Proper error state management
-- Detailed logging for debugging
-
-### API Integration
-
-- Robust streaming implementation
-- Rate limiting and backoff
-- Error recovery mechanisms
-- Content processing and formatting
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
+- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
+- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
