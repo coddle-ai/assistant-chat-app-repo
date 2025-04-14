@@ -94,6 +94,7 @@ export default function CoddleScreen() {
       quantity: "10 min",
       color: "#FCE7F3",
       textColor: "#9D174D",
+      startSide: "left",
     },
     {
       type: "Solids",
@@ -364,8 +365,16 @@ export default function CoddleScreen() {
     isSet: false,
   });
 
+  const [pumpingInput, setPumpingInput] = useState({
+    showInput: false,
+    amount: 150,
+    isSet: false,
+  });
+
   const bottleAmountAnim = useRef(new Animated.Value(0)).current;
   const timeAnim = useRef(new Animated.Value(0)).current;
+  const pumpingAmountAnim = useRef(new Animated.Value(0)).current;
+  const pumpingTimeAnim = useRef(new Animated.Value(0)).current;
 
   const animateBottleAmount = () => {
     bottleAmountAnim.setValue(0);
@@ -387,6 +396,27 @@ export default function CoddleScreen() {
       tension: 40,
       useNativeDriver: true,
     }).start();
+  };
+
+  const animatePumpingText = () => {
+    pumpingAmountAnim.setValue(0);
+    pumpingTimeAnim.setValue(0);
+    Animated.parallel([
+      Animated.spring(pumpingAmountAnim, {
+        toValue: 1,
+        duration: 600,
+        friction: 8,
+        tension: 40,
+        useNativeDriver: true,
+      }),
+      Animated.spring(pumpingTimeAnim, {
+        toValue: 1,
+        duration: 600,
+        friction: 8,
+        tension: 40,
+        useNativeDriver: true,
+      }),
+    ]).start();
   };
 
   const toggleBottleInput = () => {
@@ -421,9 +451,33 @@ export default function CoddleScreen() {
     }
   };
 
+  const togglePumpingInput = () => {
+    setPumpingInput((prev) => ({
+      ...prev,
+      showInput: !prev.showInput,
+      isSet: false,
+    }));
+  };
+
   const updateBottleAmount = (amount) => {
     const newAmount = Math.max(1, Math.min(1000, amount || 110));
     setBottleInput((prev) => ({
+      ...prev,
+      amount: newAmount,
+    }));
+  };
+
+  const updateBreastAmount = (amount) => {
+    const newAmount = Math.max(1, Math.min(1000, amount || 120));
+    setBreastInput((prev) => ({
+      ...prev,
+      amount: newAmount,
+    }));
+  };
+
+  const updatePumpingAmount = (amount) => {
+    const newAmount = Math.max(1, Math.min(1000, amount || 150));
+    setPumpingInput((prev) => ({
       ...prev,
       amount: newAmount,
     }));
@@ -466,14 +520,6 @@ export default function CoddleScreen() {
     animateTime();
   };
 
-  const updateBreastAmount = (amount) => {
-    const newAmount = Math.max(1, Math.min(1000, amount || 120));
-    setBreastInput((prev) => ({
-      ...prev,
-      amount: newAmount,
-    }));
-  };
-
   const saveBreastAmount = () => {
     setBreastInput((prev) => ({
       ...prev,
@@ -502,6 +548,67 @@ export default function CoddleScreen() {
     // Trigger animations
     animateBottleAmount();
     animateTime();
+  };
+
+  const savePumpingAmount = () => {
+    setPumpingInput((prev) => ({
+      ...prev,
+      showInput: false,
+      isSet: true,
+    }));
+    setTrackingData((prevData) =>
+      prevData.map((item) => {
+        if (item.type === "Pumping") {
+          return {
+            ...item,
+            quantity: `${pumpingInput.amount}ml`,
+            lastTime: "Just now",
+          };
+        }
+        return item;
+      })
+    );
+    animatePumpingText();
+  };
+
+  const diaperAmountAnim = useRef(new Animated.Value(0)).current;
+  const diaperTimeAnim = useRef(new Animated.Value(0)).current;
+
+  const animateDiaperText = () => {
+    diaperAmountAnim.setValue(0);
+    diaperTimeAnim.setValue(0);
+    Animated.parallel([
+      Animated.spring(diaperAmountAnim, {
+        toValue: 1,
+        duration: 600,
+        friction: 8,
+        tension: 40,
+        useNativeDriver: true,
+      }),
+      Animated.spring(diaperTimeAnim, {
+        toValue: 1,
+        duration: 600,
+        friction: 8,
+        tension: 40,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  const updateDiaperStatus = (type) => {
+    setTrackingData((prevData) =>
+      prevData.map((item) => {
+        if (item.type === "Diaper") {
+          return {
+            ...item,
+            quantity: type,
+            lastTime: "Just now",
+          };
+        }
+        return item;
+      })
+    );
+    animateDiaperText();
   };
 
   const renderTrackingCard = (item, index) => {
@@ -557,6 +664,58 @@ export default function CoddleScreen() {
         }
         return item.quantity;
       }
+      if (item.type === "Diaper") {
+        return (
+          <Animated.Text
+            style={[
+              styles.trackingText,
+              { color: item.textColor },
+              {
+                transform: [
+                  {
+                    scale: diaperAmountAnim.interpolate({
+                      inputRange: [0, 0.4, 0.8, 1],
+                      outputRange: [0.95, 1.05, 1.02, 1],
+                    }),
+                  },
+                ],
+                opacity: diaperAmountAnim.interpolate({
+                  inputRange: [0, 0.3, 1],
+                  outputRange: [0.6, 1, 1],
+                }),
+              },
+            ]}
+          >
+            {item.quantity}
+          </Animated.Text>
+        );
+      }
+      if (item.type === "Pumping") {
+        return (
+          <Animated.Text
+            style={[
+              styles.trackingText,
+              { color: item.textColor },
+              {
+                transform: [
+                  {
+                    scale: pumpingAmountAnim.interpolate({
+                      inputRange: [0, 0.4, 0.8, 1],
+                      outputRange: [0.95, 1.05, 1.02, 1],
+                    }),
+                  },
+                ],
+                opacity: pumpingAmountAnim.interpolate({
+                  inputRange: [0, 0.3, 1],
+                  outputRange: [0.6, 1, 1],
+                }),
+              },
+            ]}
+          >
+            {item.quantity}
+          </Animated.Text>
+        );
+      }
       return item.quantity;
     };
 
@@ -600,6 +759,58 @@ export default function CoddleScreen() {
       }
       if (item.type === "Breastfeed") {
         return breastfeedTimer.isRunning ? null : item.lastTime;
+      }
+      if (item.type === "Diaper") {
+        return (
+          <Animated.Text
+            style={[
+              styles.trackingText,
+              { color: item.textColor },
+              {
+                transform: [
+                  {
+                    scale: diaperTimeAnim.interpolate({
+                      inputRange: [0, 0.4, 0.8, 1],
+                      outputRange: [0.95, 1.05, 1.02, 1],
+                    }),
+                  },
+                ],
+                opacity: diaperTimeAnim.interpolate({
+                  inputRange: [0, 0.3, 1],
+                  outputRange: [0.6, 1, 1],
+                }),
+              },
+            ]}
+          >
+            {item.lastTime}
+          </Animated.Text>
+        );
+      }
+      if (item.type === "Pumping") {
+        return (
+          <Animated.Text
+            style={[
+              styles.trackingText,
+              { color: item.textColor },
+              {
+                transform: [
+                  {
+                    scale: pumpingTimeAnim.interpolate({
+                      inputRange: [0, 0.4, 0.8, 1],
+                      outputRange: [0.95, 1.05, 1.02, 1],
+                    }),
+                  },
+                ],
+                opacity: pumpingTimeAnim.interpolate({
+                  inputRange: [0, 0.3, 1],
+                  outputRange: [0.6, 1, 1],
+                }),
+              },
+            ]}
+          >
+            {item.lastTime}
+          </Animated.Text>
+        );
       }
       return item.lastTime;
     };
@@ -733,17 +944,26 @@ export default function CoddleScreen() {
                 ))}
             </>
           ) : item.isDiaper ? (
-            <>
-              <TouchableOpacity style={styles.iconButton}>
-                <Text>💩</Text>
+            <View style={styles.diaperButtons}>
+              <TouchableOpacity
+                style={styles.diaperButton}
+                onPress={() => updateDiaperStatus("Poop")}
+              >
+                <Text style={styles.diaperButtonText}>💩</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.iconButton}>
-                <Text>💧</Text>
+              <TouchableOpacity
+                style={styles.diaperButton}
+                onPress={() => updateDiaperStatus("Wet")}
+              >
+                <Text style={styles.diaperButtonText}>💧</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.iconButton}>
-                <Text>♻️</Text>
+              <TouchableOpacity
+                style={styles.diaperButton}
+                onPress={() => updateDiaperStatus("Mixed")}
+              >
+                <Text style={styles.diaperButtonText}>♻️</Text>
               </TouchableOpacity>
-            </>
+            </View>
           ) : item.type === "Breastfeed" ? (
             <View style={styles.breastfeedButtons}>
               <TouchableOpacity
@@ -752,6 +972,10 @@ export default function CoddleScreen() {
                   breastfeedTimer.isRunning &&
                     breastfeedTimer.activeSide === "left" &&
                     styles.highlightedButton,
+                  !breastfeedTimer.isRunning &&
+                    breastfeedTimer.activeSide === null &&
+                    item.startSide === "left" &&
+                    styles.startSideButton,
                 ]}
                 onPress={() => startTimer("left")}
               >
@@ -762,15 +986,6 @@ export default function CoddleScreen() {
                       <IconSymbol size={14} name="play.fill" color="#1F2937" />
                     )}
                 </View>
-                {breastfeedTimer.isRunning &&
-                  breastfeedTimer.activeSide === "left" && (
-                    <Animated.View
-                      style={[
-                        styles.pulsingBorder,
-                        { borderColor: "#FCD34D", opacity: borderPulseAnim },
-                      ]}
-                    />
-                  )}
               </TouchableOpacity>
               <TouchableOpacity
                 style={[
@@ -778,6 +993,10 @@ export default function CoddleScreen() {
                   breastfeedTimer.isRunning &&
                     breastfeedTimer.activeSide === "right" &&
                     styles.highlightedButton,
+                  !breastfeedTimer.isRunning &&
+                    breastfeedTimer.activeSide === null &&
+                    item.startSide === "right" &&
+                    styles.startSideButton,
                 ]}
                 onPress={() => startTimer("right")}
               >
@@ -788,15 +1007,6 @@ export default function CoddleScreen() {
                       <IconSymbol size={14} name="play.fill" color="#1F2937" />
                     )}
                 </View>
-                {breastfeedTimer.isRunning &&
-                  breastfeedTimer.activeSide === "right" && (
-                    <Animated.View
-                      style={[
-                        styles.pulsingBorder,
-                        { borderColor: "#FCD34D", opacity: borderPulseAnim },
-                      ]}
-                    />
-                  )}
               </TouchableOpacity>
             </View>
           ) : item.isBottle ? (
@@ -895,6 +1105,41 @@ export default function CoddleScreen() {
                     <Text>🤱</Text>
                   </TouchableOpacity>
                 )
+              )}
+            </>
+          ) : item.type === "Pumping" ? (
+            <>
+              {pumpingInput.showInput ? (
+                <View style={styles.wakeAlarmContainer}>
+                  <TextInput
+                    style={styles.wakeAlarmInput}
+                    value={pumpingInput.amount?.toString() || "150"}
+                    onChangeText={(text) => {
+                      const amount = parseInt(text) || 150;
+                      updatePumpingAmount(amount);
+                    }}
+                    keyboardType="numeric"
+                    maxLength={4}
+                    autoFocus
+                  />
+                  <Text style={styles.wakeAlarmUnit}>ml</Text>
+                  <TouchableOpacity
+                    style={styles.tickButton}
+                    onPress={savePumpingAmount}
+                  >
+                    <IconSymbol size={16} name="checkmark" color="#10B981" />
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={[
+                    styles.iconButton,
+                    pumpingInput.showInput && styles.alarmActiveButton,
+                  ]}
+                  onPress={togglePumpingInput}
+                >
+                  <IconSymbol size={20} name="plus" color="#991B1B" />
+                </TouchableOpacity>
               )}
             </>
           ) : (
@@ -1712,8 +1957,17 @@ const styles = StyleSheet.create({
     position: "relative",
     borderWidth: 1,
     borderColor: "#F3F4F6",
-    maxWidth: 80,
+    maxWidth: 48,
     paddingVertical: 0,
+  },
+  highlightedButton: {
+    backgroundColor: "#FCD34D",
+    borderColor: "#F59E0B",
+    borderWidth: 1,
+  },
+  startSideButton: {
+    borderColor: "#F59E0B",
+    borderWidth: 1,
   },
   breastfeedButtonContent: {
     flexDirection: "row",
@@ -1728,29 +1982,15 @@ const styles = StyleSheet.create({
     color: "#1F2937",
     letterSpacing: 0.2,
   },
-  highlightedButton: {
-    backgroundColor: "#FCD34D",
-    borderColor: "#F59E0B",
-  },
-  pulsingBorder: {
+  nextSideIndicator: {
     position: "absolute",
     top: -2,
     left: -2,
     right: -2,
     bottom: -2,
-    borderRadius: 16,
-    borderWidth: 1,
-  },
-  suggestedButton: {
-    borderWidth: 0.5,
-    borderColor: "rgba(157, 23, 77, 0.3)",
     borderRadius: 18,
-    backgroundColor: "white",
-  },
-  nextSideIndicator: {
-    position: "absolute",
-    top: -4,
-    right: -4,
+    borderWidth: 2,
+    borderColor: "#F59E0B",
   },
   breastfeedIndicator: {
     backgroundColor: "rgba(220, 38, 38, 0.1)",
@@ -1880,5 +2120,26 @@ const styles = StyleSheet.create({
   breastfeedTimerContainer: {
     gap: 2,
     marginBottom: 2,
+  },
+  diaperButtons: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
+    gap: 8,
+    alignItems: "center",
+    height: 36,
+  },
+  diaperButton: {
+    flex: 1,
+    height: 36,
+    backgroundColor: "white",
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#F3F4F6",
+  },
+  diaperButtonText: {
+    fontSize: 16,
   },
 });
