@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, memo } from "react";
 import {
   View,
   Text,
@@ -7,25 +7,297 @@ import {
   SafeAreaView,
   Platform,
   Animated,
+  Modal,
+  TextInput,
+  Alert,
 } from "react-native";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
+import DateTimePicker from "@react-native-community/datetimepicker";
+import { format, set, subDays, isSameDay } from "date-fns";
+
+const ManualEntryModal = ({ visible, onClose, onSave }) => {
+  const [entryType, setEntryType] = useState("total"); // "total" or "sides"
+  const [totalMinutes, setTotalMinutes] = useState("");
+  const [leftMinutes, setLeftMinutes] = useState("");
+  const [rightMinutes, setRightMinutes] = useState("");
+  const [error, setError] = useState("");
+
+  const validateAndSetMinutes = (value, setter) => {
+    const numValue = parseInt(value) || 0;
+    if (numValue > 120) {
+      setError("Time cannot exceed 120 minutes");
+      setter("120");
+    } else {
+      setError("");
+      setter(value);
+    }
+  };
+
+  const handleSave = () => {
+    const total = parseInt(totalMinutes) || 0;
+    const left = parseInt(leftMinutes) || 0;
+    const right = parseInt(rightMinutes) || 0;
+
+    if (entryType === "total") {
+      if (total > 120) {
+        setError("Total time cannot exceed 120 minutes");
+        return;
+      }
+      onSave({ total });
+    } else {
+      if (left + right > 120) {
+        setError("Combined time cannot exceed 120 minutes");
+        return;
+      }
+      onSave({ left, right });
+    }
+    setError("");
+    onClose();
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Manual Time Entry</Text>
+            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+              <IconSymbol name="xmark" size={20} color="#1F2937" />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.segmentedControl}>
+            <TouchableOpacity
+              style={[
+                styles.segmentButton,
+                entryType === "total" && styles.segmentButtonActive,
+              ]}
+              onPress={() => {
+                setEntryType("total");
+                setError("");
+              }}
+            >
+              <Text
+                style={[
+                  styles.segmentButtonText,
+                  entryType === "total" && styles.segmentButtonTextActive,
+                ]}
+              >
+                Total Time
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.segmentButton,
+                entryType === "sides" && styles.segmentButtonActive,
+              ]}
+              onPress={() => {
+                setEntryType("sides");
+                setError("");
+              }}
+            >
+              <Text
+                style={[
+                  styles.segmentButtonText,
+                  entryType === "sides" && styles.segmentButtonTextActive,
+                ]}
+              >
+                Left & Right
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {error ? (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          ) : null}
+
+          {entryType === "total" ? (
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Total Time (minutes)</Text>
+              <TextInput
+                style={[styles.timeInput, error && styles.timeInputError]}
+                value={totalMinutes}
+                onChangeText={(value) =>
+                  validateAndSetMinutes(value, setTotalMinutes)
+                }
+                keyboardType="numeric"
+                placeholder="Enter minutes (max 120)"
+                maxLength={3}
+              />
+            </View>
+          ) : (
+            <>
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Left Side (minutes)</Text>
+                <TextInput
+                  style={[styles.timeInput, error && styles.timeInputError]}
+                  value={leftMinutes}
+                  onChangeText={(value) =>
+                    validateAndSetMinutes(value, setLeftMinutes)
+                  }
+                  keyboardType="numeric"
+                  placeholder="Enter minutes"
+                  maxLength={3}
+                />
+              </View>
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Right Side (minutes)</Text>
+                <TextInput
+                  style={[styles.timeInput, error && styles.timeInputError]}
+                  value={rightMinutes}
+                  onChangeText={(value) =>
+                    validateAndSetMinutes(value, setRightMinutes)
+                  }
+                  keyboardType="numeric"
+                  placeholder="Enter minutes"
+                  maxLength={3}
+                />
+              </View>
+            </>
+          )}
+
+          <TouchableOpacity
+            style={[styles.saveButton, error && styles.saveButtonDisabled]}
+            onPress={handleSave}
+            disabled={!!error}
+          >
+            <Text style={styles.saveButtonText}>Save</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+const ManualEntryButton = memo(({ onPress }) => (
+  <TouchableOpacity
+    style={styles.manualEntryButton}
+    onPress={onPress}
+    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+  >
+    <IconSymbol name="pencil" size={16} color="#0F766E" />
+  </TouchableOpacity>
+));
+
+const SaveButton = memo(({ onPress, disabled }) => (
+  <TouchableOpacity
+    style={[styles.saveButton, disabled && styles.buttonDisabled]}
+    onPress={onPress}
+    disabled={disabled}
+  >
+    <IconSymbol
+      name="square.and.arrow.down"
+      size={20}
+      color={disabled ? "#94A3B8" : "#FFFFFF"}
+      style={{ marginRight: 8 }}
+    />
+    <Text style={[styles.buttonText, styles.saveButtonText]}>Save Session</Text>
+  </TouchableOpacity>
+));
+
+const DateTimeModal = ({ visible, onClose, onSave, currentDate }) => {
+  const [selectedDate, setSelectedDate] = useState(currentDate);
+
+  const handleDateChange = (event, date) => {
+    if (Platform.OS === "android") {
+      if (event.type === "dismissed") {
+        onClose();
+        return;
+      }
+    }
+    if (date) {
+      setSelectedDate(date);
+      if (Platform.OS === "android") {
+        onSave(date);
+        onClose();
+      }
+    }
+  };
+
+  const handleSave = () => {
+    onSave(selectedDate);
+    onClose();
+  };
+
+  if (Platform.OS === "android") {
+    if (visible) {
+      return (
+        <DateTimePicker
+          value={selectedDate}
+          mode="datetime"
+          is24Hour={true}
+          onChange={handleDateChange}
+        />
+      );
+    }
+    return null;
+  }
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Set Date & Time</Text>
+            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+              <Text style={styles.closeButtonText}>✕</Text>
+            </TouchableOpacity>
+          </View>
+
+          <DateTimePicker
+            value={selectedDate}
+            mode="datetime"
+            display="spinner"
+            onChange={handleDateChange}
+            style={{ height: 200 }}
+          />
+
+          <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
+            <Text style={styles.saveButtonText}>Set Date & Time</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+};
 
 export default function NursingScreen() {
   const router = useRouter();
-  const [isRunning, setIsRunning] = useState(false);
-  const [totalTime, setTotalTime] = useState(0);
-  const [leftTime, setLeftTime] = useState(0);
-  const [rightTime, setRightTime] = useState(0);
-  const [activeSide, setActiveSide] = useState(null);
-  const [currentDate] = useState(new Date());
-  const scaleAnim = useState(new Animated.Value(1))[0];
+  const timerRef = useRef(null);
+  const startTimeRef = useRef(null);
+  const [showManualEntry, setShowManualEntry] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [timerState, setTimerState] = useState({
+    isRunning: false,
+    totalTime: 0,
+    leftTime: 0,
+    rightTime: 0,
+    activeSide: null,
+  });
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const suggestAnim = useRef(new Animated.Value(1)).current;
+  const [suggestedSide, setSuggestedSide] = useState(null);
 
   // Create continuous pulse animation
   useEffect(() => {
     let pulseAnimation;
-    if (isRunning) {
+    if (timerState.isRunning) {
       pulseAnimation = Animated.loop(
         Animated.sequence([
           Animated.timing(scaleAnim, {
@@ -49,37 +321,88 @@ export default function NursingScreen() {
         pulseAnimation.stop();
       }
     };
-  }, [isRunning]);
+  }, [timerState.isRunning]);
 
-  // Separate timer effect
+  // Optimized timer effect
   useEffect(() => {
-    let interval;
-    if (isRunning) {
-      const startTime = Date.now() - totalTime * 1000;
-      interval = setInterval(() => {
-        const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
-        setTotalTime(elapsedSeconds);
-        if (activeSide === "L") {
-          setLeftTime((prev) => prev + 1);
-        } else if (activeSide === "R") {
-          setRightTime((prev) => prev + 1);
-        }
+    if (timerState.isRunning) {
+      startTimeRef.current = Date.now() - timerState.totalTime * 1000;
+      timerRef.current = setInterval(() => {
+        const elapsedSeconds = Math.floor(
+          (Date.now() - startTimeRef.current) / 1000
+        );
+        setTimerState((prev) => ({
+          ...prev,
+          totalTime: elapsedSeconds,
+          leftTime: prev.activeSide === "L" ? prev.leftTime + 1 : prev.leftTime,
+          rightTime:
+            prev.activeSide === "R" ? prev.rightTime + 1 : prev.rightTime,
+        }));
       }, 1000);
     }
-    return () => clearInterval(interval);
-  }, [isRunning, activeSide]);
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, [timerState.isRunning, timerState.activeSide]);
+
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: timerState.activeSide ? 0 : 1,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+  }, [timerState.activeSide]);
+
+  // Modify the suggestion animation to be more subtle
+  useEffect(() => {
+    let suggestAnimation;
+    if (!timerState.isRunning && suggestedSide) {
+      suggestAnimation = Animated.loop(
+        Animated.sequence([
+          Animated.timing(suggestAnim, {
+            toValue: 1.05,
+            duration: 1200,
+            useNativeDriver: true,
+          }),
+          Animated.timing(suggestAnim, {
+            toValue: 1,
+            duration: 1200,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      suggestAnimation.start();
+    } else {
+      suggestAnim.setValue(1);
+    }
+    return () => {
+      if (suggestAnimation) {
+        suggestAnimation.stop();
+      }
+    };
+  }, [suggestedSide, timerState.isRunning]);
+
+  // Remove the useEffect for suggestion as we'll handle it directly in toggleTimer
+  useEffect(() => {
+    if (timerState.isRunning) {
+      setSuggestedSide(null);
+    }
+  }, [timerState.isRunning]);
 
   const formatTime = (seconds) => {
     const hours = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
 
-    if (hours > 0) {
-      return `${hours}h ${mins}m ${secs}s`;
-    } else if (mins > 0) {
-      return `${mins}m ${secs}s`;
-    }
-    return `${secs}s`;
+    const parts = [];
+    if (hours > 0) parts.push(`${hours}h`);
+    if (mins > 0 || hours > 0) parts.push(`${mins}m`);
+    parts.push(`${secs}s`);
+
+    return parts.join(" ");
   };
 
   const formatSideTime = (seconds) => {
@@ -96,196 +419,587 @@ export default function NursingScreen() {
   };
 
   const toggleTimer = (side) => {
-    if (!isRunning) {
-      setIsRunning(true);
-      setActiveSide(side);
-    } else if (activeSide === side) {
-      setIsRunning(false);
-      setActiveSide(null);
+    setTimerState((prev) => {
+      if (!prev.isRunning) {
+        setSuggestedSide(null); // Clear suggestion when starting
+        return {
+          ...prev,
+          isRunning: true,
+          activeSide: side,
+        };
+      } else if (prev.activeSide === side) {
+        // When stopping a side, suggest the opposite side
+        const oppositeSide = side === "L" ? "R" : "L";
+        setSuggestedSide(oppositeSide);
+        return {
+          ...prev,
+          isRunning: false,
+          activeSide: null,
+        };
+      } else {
+        setSuggestedSide(null); // Clear suggestion when switching sides
+        return {
+          ...prev,
+          activeSide: side,
+        };
+      }
+    });
+  };
+
+  const toggleMainTimer = () => {
+    setTimerState((prev) => ({
+      ...prev,
+      isRunning: !prev.isRunning,
+      activeSide: null,
+    }));
+  };
+
+  const handleManualEntry = (times) => {
+    if (times.total !== undefined) {
+      setTimerState((prev) => ({
+        ...prev,
+        totalTime: times.total * 60,
+        isRunning: false,
+        activeSide: null,
+      }));
     } else {
-      setActiveSide(side);
+      setTimerState((prev) => ({
+        ...prev,
+        leftTime: times.left * 60,
+        rightTime: times.right * 60,
+        totalTime: (times.left + times.right) * 60,
+        isRunning: false,
+        activeSide: null,
+      }));
     }
   };
 
+  const handleSave = () => {
+    if (timerState.totalTime === 0) {
+      Alert.alert(
+        "No Time Recorded",
+        "Please record some nursing time before saving.",
+        [{ text: "OK" }]
+      );
+      return;
+    }
+
+    // Stop the timer if it's running
+    if (timerState.isRunning) {
+      setTimerState((prev) => ({
+        ...prev,
+        isRunning: false,
+        activeSide: null,
+      }));
+    }
+
+    // TODO: Implement actual save logic here
+    Alert.alert(
+      "Session Saved",
+      `Total Time: ${formatTime(timerState.totalTime)}\nLeft: ${formatTime(
+        timerState.leftTime
+      )}\nRight: ${formatTime(timerState.rightTime)}`,
+      [
+        {
+          text: "OK",
+          onPress: () => {
+            setTimerState({
+              isRunning: false,
+              totalTime: 0,
+              leftTime: 0,
+              rightTime: 0,
+              activeSide: null,
+            });
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDateTimeChange = (newDate) => {
+    setCurrentDate(newDate);
+    setShowDatePicker(false);
+  };
+
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        {/* Time Display */}
-        <View style={styles.timeSection}>
-          <View style={styles.timeHeader}>
-            <View style={styles.timeIconContainer}>
-              <IconSymbol name="clock" size={20} color="#0F766E" />
-              <Text style={styles.timeLabel}>Session Timer</Text>
+    <View style={styles.outerContainer}>
+      <SafeAreaView style={styles.container}>
+        <View style={styles.content}>
+          {/* Time Display */}
+          <View style={styles.timeSection}>
+            <View style={styles.timeHeader}>
+              <View style={styles.timeIconContainer}>
+                <IconSymbol name="clock" size={24} color="#0F766E" />
+                <Text style={styles.timeLabel}>Time</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.dateContainer}
+                onPress={() => setShowDatePicker(true)}
+                activeOpacity={0.7}
+              >
+                <IconSymbol
+                  name="calendar"
+                  size={16}
+                  color="#0F766E"
+                  style={{ marginRight: 8, opacity: 0.8 }}
+                />
+                <Text style={styles.dateText}>
+                  {currentDate.toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </Text>
+                <IconSymbol
+                  name="chevron.down"
+                  size={12}
+                  color="#0F766E"
+                  style={{ marginLeft: 4, opacity: 0.6 }}
+                />
+              </TouchableOpacity>
             </View>
-            <View style={styles.dateContainer}>
-              <Text style={styles.dateText}>
-                {currentDate.toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </Text>
+          </View>
+
+          {/* Total Timer / Main Play Button */}
+          <View style={styles.totalTimerSection}>
+            <TouchableOpacity
+              onPress={toggleMainTimer}
+              activeOpacity={0.9}
+              disabled={timerState.activeSide !== null}
+              style={styles.totalTimerTouchable}
+            >
+              <LinearGradient
+                colors={[
+                  timerState.isRunning && !timerState.activeSide
+                    ? "#0F766E"
+                    : "#E0FDFA",
+                  timerState.isRunning && !timerState.activeSide
+                    ? "#0E7490"
+                    : "#99F6E4",
+                ]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.totalTimerContainer}
+              >
+                <Animated.View
+                  style={[
+                    styles.timerContent,
+                    { transform: [{ scale: scaleAnim }] },
+                  ]}
+                >
+                  <View style={styles.totalLabelContainer}>
+                    <Text
+                      style={[
+                        styles.totalLabel,
+                        timerState.isRunning &&
+                          !timerState.activeSide &&
+                          styles.activeTimerText,
+                      ]}
+                    >
+                      Total Time
+                    </Text>
+                    <ManualEntryButton
+                      onPress={() => setShowManualEntry(true)}
+                      style={[
+                        styles.timerManualEntry,
+                        timerState.isRunning &&
+                          !timerState.activeSide &&
+                          styles.activeManualEntry,
+                      ]}
+                    />
+                  </View>
+                  <Text
+                    style={[
+                      styles.totalTimerValue,
+                      timerState.isRunning &&
+                        !timerState.activeSide &&
+                        styles.activeTimerText,
+                    ]}
+                  >
+                    {formatTime(timerState.totalTime)}
+                  </Text>
+                  <Animated.View style={{ opacity: fadeAnim }}>
+                    <View style={styles.playIconContainer}>
+                      <IconSymbol
+                        name={
+                          !timerState.isRunning || timerState.activeSide
+                            ? "play.circle.fill"
+                            : "pause.circle.fill"
+                        }
+                        size={44}
+                        color={
+                          timerState.isRunning && !timerState.activeSide
+                            ? "#FFFFFF"
+                            : "#0F766E"
+                        }
+                        style={styles.mainPlayIcon}
+                      />
+                    </View>
+                  </Animated.View>
+                </Animated.View>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+
+          {/* Side Buttons */}
+          <View style={styles.sideButtonsContainer}>
+            {/* Left Button */}
+            <View style={styles.sideButtonWrapper}>
+              <Animated.View
+                style={{
+                  transform: [
+                    { scale: suggestedSide === "L" ? suggestAnim : 1 },
+                  ],
+                }}
+              >
+                <TouchableOpacity
+                  style={[
+                    styles.sideButton,
+                    timerState.activeSide === "L" &&
+                      timerState.isRunning &&
+                      styles.activeSideButton,
+                    timerState.isRunning &&
+                      !timerState.activeSide &&
+                      styles.disabledSideButton,
+                  ]}
+                  onPress={() => toggleTimer("L")}
+                  disabled={timerState.isRunning && !timerState.activeSide}
+                >
+                  {suggestedSide === "L" ? (
+                    <LinearGradient
+                      colors={["#E0FDFA", "#99F6E4"]}
+                      style={[
+                        styles.gradientSuggestion,
+                        styles.sideButtonContent,
+                      ]}
+                    >
+                      <View style={styles.buttonContent}>
+                        <IconSymbol
+                          name="play.circle.fill"
+                          size={44}
+                          color="#0F766E"
+                          style={styles.playIcon}
+                        />
+                      </View>
+                    </LinearGradient>
+                  ) : (
+                    <View style={styles.buttonContent}>
+                      {!(
+                        timerState.activeSide === "L" && timerState.isRunning
+                      ) ? (
+                        <IconSymbol
+                          name="play.circle.fill"
+                          size={44}
+                          color={
+                            timerState.isRunning && !timerState.activeSide
+                              ? "#CBD5E1"
+                              : "#0F766E"
+                          }
+                          style={[
+                            styles.playIcon,
+                            timerState.isRunning &&
+                              !timerState.activeSide &&
+                              styles.disabledIcon,
+                          ]}
+                        />
+                      ) : (
+                        <>
+                          <IconSymbol
+                            name="pause.circle.fill"
+                            size={44}
+                            color="#FFFFFF"
+                          />
+                          <Text style={[styles.sideTime, styles.activeText]}>
+                            {formatSideTime(timerState.leftTime)}
+                          </Text>
+                        </>
+                      )}
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </Animated.View>
+              <View
+                style={[
+                  styles.sideLabelContainer,
+                  timerState.isRunning &&
+                    !timerState.activeSide &&
+                    styles.disabledLabel,
+                  suggestedSide === "L" && styles.suggestedSideLabel,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.sideLabel,
+                    timerState.isRunning &&
+                      !timerState.activeSide &&
+                      styles.disabledLabelText,
+                  ]}
+                >
+                  Left
+                </Text>
+              </View>
+            </View>
+
+            {/* Right Button */}
+            <View style={styles.sideButtonWrapper}>
+              <Animated.View
+                style={{
+                  transform: [
+                    { scale: suggestedSide === "R" ? suggestAnim : 1 },
+                  ],
+                }}
+              >
+                <TouchableOpacity
+                  style={[
+                    styles.sideButton,
+                    timerState.activeSide === "R" &&
+                      timerState.isRunning &&
+                      styles.activeSideButton,
+                    timerState.isRunning &&
+                      !timerState.activeSide &&
+                      styles.disabledSideButton,
+                  ]}
+                  onPress={() => toggleTimer("R")}
+                  disabled={timerState.isRunning && !timerState.activeSide}
+                >
+                  {suggestedSide === "R" ? (
+                    <LinearGradient
+                      colors={["#E0FDFA", "#99F6E4"]}
+                      style={[
+                        styles.gradientSuggestion,
+                        styles.sideButtonContent,
+                      ]}
+                    >
+                      <View style={styles.buttonContent}>
+                        <IconSymbol
+                          name="play.circle.fill"
+                          size={44}
+                          color="#0F766E"
+                          style={styles.playIcon}
+                        />
+                      </View>
+                    </LinearGradient>
+                  ) : (
+                    <View style={styles.buttonContent}>
+                      {!(
+                        timerState.activeSide === "R" && timerState.isRunning
+                      ) ? (
+                        <IconSymbol
+                          name="play.circle.fill"
+                          size={44}
+                          color={
+                            timerState.isRunning && !timerState.activeSide
+                              ? "#CBD5E1"
+                              : "#0F766E"
+                          }
+                          style={[
+                            styles.playIcon,
+                            timerState.isRunning &&
+                              !timerState.activeSide &&
+                              styles.disabledIcon,
+                          ]}
+                        />
+                      ) : (
+                        <>
+                          <IconSymbol
+                            name="pause.circle.fill"
+                            size={44}
+                            color="#FFFFFF"
+                          />
+                          <Text style={[styles.sideTime, styles.activeText]}>
+                            {formatSideTime(timerState.rightTime)}
+                          </Text>
+                        </>
+                      )}
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </Animated.View>
+              <View
+                style={[
+                  styles.sideLabelContainer,
+                  timerState.isRunning &&
+                    !timerState.activeSide &&
+                    styles.disabledLabel,
+                  suggestedSide === "R" && styles.suggestedSideLabel,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.sideLabel,
+                    timerState.isRunning &&
+                      !timerState.activeSide &&
+                      styles.disabledLabelText,
+                  ]}
+                >
+                  Right
+                </Text>
+              </View>
             </View>
           </View>
         </View>
-
-        {/* Total Timer */}
-        <LinearGradient
-          colors={["#CCFBF1", "#99F6E4"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.totalTimerContainer}
-        >
-          <Animated.View
-            style={[styles.timerContent, { transform: [{ scale: scaleAnim }] }]}
-          >
-            <Text style={styles.totalTimerValue}>{formatTime(totalTime)}</Text>
-            <Text style={styles.totalLabel}>Total Time</Text>
-          </Animated.View>
-        </LinearGradient>
-
-        {/* Side Buttons */}
-        <View style={styles.sideButtonsContainer}>
-          {/* Left Button */}
-          <View style={styles.sideButtonWrapper}>
-            <TouchableOpacity
-              style={[
-                styles.sideButton,
-                activeSide === "L" && isRunning && styles.activeSideButton,
-              ]}
-              onPress={() => toggleTimer("L")}
-            >
-              <View style={styles.buttonContent}>
-                {!(activeSide === "L" && isRunning) ? (
-                  <IconSymbol
-                    name="play.fill"
-                    size={32}
-                    color="#0F766E"
-                    style={styles.playIcon}
-                  />
-                ) : (
-                  <>
-                    <IconSymbol name="pause.fill" size={32} color="#FFFFFF" />
-                    <Text style={[styles.sideTime, styles.activeText]}>
-                      {formatSideTime(leftTime)}
-                    </Text>
-                  </>
-                )}
-              </View>
-            </TouchableOpacity>
-            <View style={styles.sideLabelContainer}>
-              <Text style={styles.sideLabel}>L</Text>
-            </View>
-          </View>
-
-          {/* Right Button */}
-          <View style={styles.sideButtonWrapper}>
-            <TouchableOpacity
-              style={[
-                styles.sideButton,
-                activeSide === "R" && isRunning && styles.activeSideButton,
-              ]}
-              onPress={() => toggleTimer("R")}
-            >
-              <View style={styles.buttonContent}>
-                {!(activeSide === "R" && isRunning) ? (
-                  <IconSymbol
-                    name="play.fill"
-                    size={32}
-                    color="#0F766E"
-                    style={styles.playIcon}
-                  />
-                ) : (
-                  <>
-                    <IconSymbol name="pause.fill" size={32} color="#FFFFFF" />
-                    <Text style={[styles.sideTime, styles.activeText]}>
-                      {formatSideTime(rightTime)}
-                    </Text>
-                  </>
-                )}
-              </View>
-            </TouchableOpacity>
-            <View style={styles.sideLabelContainer}>
-              <Text style={styles.sideLabel}>R</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Manual Entry Button */}
-        <TouchableOpacity style={styles.manualEntryButton}>
-          <Text style={styles.manualEntryText}>Manual Entry</Text>
-        </TouchableOpacity>
+      </SafeAreaView>
+      <View style={styles.bottomBar}>
+        <SaveButton
+          onPress={handleSave}
+          disabled={timerState.totalTime === 0}
+        />
       </View>
-    </SafeAreaView>
+      <ManualEntryModal
+        visible={showManualEntry}
+        onClose={() => setShowManualEntry(false)}
+        onSave={handleManualEntry}
+      />
+      <DateTimeModal
+        visible={showDatePicker}
+        onClose={() => setShowDatePicker(false)}
+        onSave={handleDateTimeChange}
+        currentDate={currentDate}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  outerContainer: {
     flex: 1,
     backgroundColor: "#F0FDFA",
+  },
+  container: {
+    flex: 1,
   },
   content: {
     flex: 1,
   },
   timeSection: {
     paddingHorizontal: 24,
-    marginTop: 32,
-    marginBottom: 32,
+    marginTop: 24,
+    marginBottom: 24,
   },
   timeHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     backgroundColor: "#FFFFFF",
-    padding: 20,
-    borderRadius: 20,
+    padding: 24,
+    borderRadius: 24,
     ...Platform.select({
       ios: {
         shadowColor: "#0F766E",
-        shadowOffset: { width: 0, height: 2 },
+        shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.1,
-        shadowRadius: 8,
+        shadowRadius: 16,
       },
       android: {
-        elevation: 2,
+        elevation: 3,
       },
     }),
   },
   timeIconContainer: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 10,
   },
   timeLabel: {
-    fontSize: 18,
-    fontWeight: "600",
+    fontSize: 20,
+    fontWeight: "700",
     color: "#0F766E",
+    letterSpacing: -0.5,
   },
   dateContainer: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#F0FDFA",
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 12,
+    paddingVertical: 10,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "rgba(15, 118, 110, 0.1)",
   },
   dateText: {
     fontSize: 15,
     color: "#0F766E",
-    fontWeight: "500",
+    fontWeight: "600",
+  },
+  totalTimerSection: {
+    position: "relative",
+    marginVertical: 24,
+    marginHorizontal: 24,
+  },
+  totalTimerTouchable: {
+    width: "100%",
   },
   totalTimerContainer: {
-    marginBottom: 48,
-    marginTop: 24,
-    marginHorizontal: 24,
-    padding: 32,
+    padding: 36,
     borderRadius: 100,
     ...Platform.select({
       ios: {
         shadowColor: "#0F766E",
-        shadowOffset: { width: 0, height: 4 },
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.2,
+        shadowRadius: 24,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
+  },
+  timerContent: {
+    alignItems: "center",
+  },
+  totalLabelContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
+  },
+  totalLabel: {
+    fontSize: 18,
+    color: "#0F766E",
+    fontWeight: "600",
+    opacity: 0.8,
+  },
+  totalTimerValue: {
+    fontSize: 48,
+    fontWeight: "700",
+    color: "#0F766E",
+    letterSpacing: -1,
+    marginBottom: 8,
+    textAlign: "center",
+    lineHeight: 56,
+  },
+  activeTimerText: {
+    color: "#FFFFFF",
+  },
+  playIconContainer: {
+    marginTop: 0,
+  },
+  mainPlayIcon: {
+    opacity: 0.9,
+  },
+  sideButtonsContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 40,
+    marginBottom: 48,
+    paddingHorizontal: 24,
+  },
+  sideButtonWrapper: {
+    alignItems: "center",
+    gap: 16,
+  },
+  sideButton: {
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: "#FFFFFF",
+    justifyContent: "center",
+    alignItems: "center",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#0F766E",
+        shadowOffset: { width: 0, height: 6 },
         shadowOpacity: 0.15,
         shadowRadius: 16,
       },
@@ -294,37 +1008,40 @@ const styles = StyleSheet.create({
       },
     }),
   },
-  timerContent: {
-    alignItems: "center",
+  activeSideButton: {
+    backgroundColor: "#0F766E",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#0F766E",
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.25,
+        shadowRadius: 20,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
   },
-  totalTimerValue: {
-    fontSize: 56,
+  playIcon: {
+    opacity: 0.9,
+  },
+  sideTime: {
+    fontSize: 32,
     fontWeight: "700",
     color: "#0F766E",
-    letterSpacing: -1,
+    marginTop: 12,
+    letterSpacing: -0.5,
+    textAlign: "center",
+    lineHeight: 36,
   },
-  totalLabel: {
-    fontSize: 15,
-    color: "#0F766E",
-    opacity: 0.7,
-    fontWeight: "500",
-    marginTop: 8,
+  activeText: {
+    color: "#FFFFFF",
   },
-  sideButtonsContainer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: 32,
-    marginBottom: 48,
-  },
-  sideButtonWrapper: {
-    alignItems: "center",
-    gap: 12,
-  },
-  sideButton: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    backgroundColor: "#FFFFFF",
+  sideLabelContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    backgroundColor: "#F0FDFA",
     justifyContent: "center",
     alignItems: "center",
     ...Platform.select({
@@ -339,8 +1056,55 @@ const styles = StyleSheet.create({
       },
     }),
   },
-  activeSideButton: {
+  sideLabel: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#0F766E",
+  },
+  buttonContent: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  manualEntryContainer: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 24,
+    paddingBottom: Platform.OS === "ios" ? 40 : 24,
+    backgroundColor: "#F0FDFA",
+  },
+  manualEntryButton: {
+    backgroundColor: "#F0FDFA",
+    padding: 8,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#0F766E",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  buttonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#0F766E",
+  },
+  saveButton: {
     backgroundColor: "#0F766E",
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
     ...Platform.select({
       ios: {
         shadowColor: "#0F766E",
@@ -349,80 +1113,320 @@ const styles = StyleSheet.create({
         shadowRadius: 12,
       },
       android: {
-        elevation: 4,
+        elevation: 3,
       },
     }),
   },
-  playIcon: {
-    opacity: 0.8,
-    transform: [{ scale: 1.2 }],
-  },
-  sideTime: {
-    fontSize: 28,
-    fontWeight: "600",
-    color: "#0F766E",
-    marginTop: 8,
-    letterSpacing: -0.5,
-    textAlign: "center",
-    lineHeight: 32,
-  },
-  activeText: {
+  saveButtonText: {
     color: "#FFFFFF",
   },
-  sideLabelContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#F0FDFA",
-    justifyContent: "center",
-    alignItems: "center",
-    marginTop: 12,
-    ...Platform.select({
-      ios: {
-        shadowColor: "#0F766E",
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 1,
-      },
-    }),
+  buttonDisabled: {
+    backgroundColor: "#E2E8F0",
   },
-  sideLabel: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#0F766E",
+  errorContainer: {
+    backgroundColor: "#FEE2E2",
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
   },
-  manualEntryButton: {
-    backgroundColor: "#FFFFFF",
-    padding: 20,
-    borderRadius: 20,
-    marginHorizontal: 24,
-    alignItems: "center",
+  errorText: {
+    color: "#DC2626",
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  timeInputError: {
+    borderColor: "#DC2626",
+    backgroundColor: "#FEF2F2",
+  },
+  saveButtonDisabled: {
+    backgroundColor: "#94A3B8",
+  },
+  bottomBar: {
     position: "absolute",
-    bottom: Platform.OS === "ios" ? 40 : 20,
+    bottom: 0,
     left: 0,
     right: 0,
+    paddingHorizontal: 24,
+    paddingBottom: Platform.OS === "ios" ? 40 : 24,
+    paddingTop: 12,
+    backgroundColor: "#F0FDFA",
+  },
+  segmentedControl: {
+    flexDirection: "row",
+    backgroundColor: "#F3F4F6",
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 24,
+  },
+  segmentButton: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: "center",
+    borderRadius: 8,
+  },
+  segmentButtonActive: {
+    backgroundColor: "#FFFFFF",
     ...Platform.select({
       ios: {
         shadowColor: "#0F766E",
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
-        shadowRadius: 8,
+        shadowRadius: 4,
       },
       android: {
         elevation: 2,
       },
     }),
   },
-  manualEntryText: {
+  segmentButtonText: {
+    fontSize: 15,
+    fontWeight: "500",
+    color: "#6B7280",
+  },
+  segmentButtonTextActive: {
+    color: "#0F766E",
+    fontWeight: "600",
+  },
+  inputContainer: {
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontSize: 15,
+    fontWeight: "500",
+    color: "#374151",
+    marginBottom: 8,
+  },
+  timeInputSection: {
+    marginBottom: 24,
+    backgroundColor: "#F9FAFB",
+    borderRadius: 12,
+    padding: 16,
+  },
+  timeInput: {
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 18,
+    color: "#1F2937",
+    textAlign: "center",
+    marginTop: 8,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContent: {
+    backgroundColor: "white",
+    borderRadius: 16,
+    padding: 20,
+    width: "90%",
+    maxWidth: 400,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: "#1F2937",
+  },
+  closeButton: {
+    padding: 8,
+  },
+  closeButtonText: {
+    fontSize: 18,
+    color: "#6B7280",
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#374151",
+    marginBottom: 8,
+  },
+  timeInputSection: {
+    marginBottom: 24,
+  },
+  timeInput: {
+    height: 48,
+    borderWidth: 1,
+    borderColor: "#D1D5DB",
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    fontSize: 16,
+    color: "#1F2937",
+  },
+  dateSection: {
+    marginBottom: 24,
+  },
+  dateGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  dateButton: {
+    width: "31%",
+    height: 48,
+    backgroundColor: "#F3F4F6",
+    borderRadius: 8,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  selectedDateButton: {
+    backgroundColor: "#0D9488",
+  },
+  dateButtonText: {
+    fontSize: 14,
+    color: "#374151",
+    fontWeight: "500",
+  },
+  selectedDateButtonText: {
+    color: "white",
+  },
+  saveButton: {
+    backgroundColor: "#0D9488",
+    height: 48,
+    borderRadius: 8,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  saveButtonText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "500",
+  },
+  timerManualEntry: {
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    padding: 6,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#0F766E",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  activeManualEntry: {
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+  },
+  suggestedSideButton: {
+    backgroundColor: "#FFFFFF",
+    borderWidth: 4,
+    borderColor: "#0F766E",
+    borderStyle: "solid",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#0F766E",
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.35,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  suggestedSideLabel: {
+    backgroundColor: "#E0FDFA",
+    borderWidth: 1,
+    borderColor: "#0F766E",
+  },
+  gradientSuggestion: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 75,
+    borderWidth: 2,
+    borderColor: "#0F766E",
+  },
+  sideButtonContent: {
+    justifyContent: "center",
+    alignItems: "center",
+    width: "100%",
+    height: "100%",
+  },
+  suggestedText: {
+    marginTop: 8,
     fontSize: 16,
     fontWeight: "600",
     color: "#0F766E",
   },
-  buttonContent: {
+  dateButtonsContainer: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 24,
+  },
+  dateButton: {
+    flex: 1,
+    backgroundColor: "#F0FDFA",
+    padding: 16,
+    borderRadius: 12,
     alignItems: "center",
-    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(15, 118, 110, 0.1)",
+  },
+  dateButtonSelected: {
+    backgroundColor: "#0F766E",
+    borderColor: "#0F766E",
+  },
+  dateButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#0F766E",
+  },
+  dateButtonTextSelected: {
+    color: "#FFFFFF",
+  },
+  timeSection: {
+    marginBottom: 24,
+  },
+  sectionLabel: {
+    fontSize: 15,
+    fontWeight: "500",
+    color: "#64748B",
+    marginBottom: 12,
+  },
+  timeOptionsContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  timeButton: {
+    flex: 1,
+    minWidth: "45%",
+    backgroundColor: "#F0FDFA",
+    padding: 12,
+    borderRadius: 12,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(15, 118, 110, 0.1)",
+  },
+  timeButtonSelected: {
+    backgroundColor: "#0F766E",
+    borderColor: "#0F766E",
+  },
+  timeButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#0F766E",
+  },
+  timeButtonTextSelected: {
+    color: "#FFFFFF",
   },
 });

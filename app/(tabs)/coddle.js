@@ -929,14 +929,22 @@ export default function CoddleScreen() {
       >
         <View>
           <View style={styles.cardHeader}>
-            <Text style={[styles.trackingType, { color: item.textColor }]}>
-              {item.type}
-            </Text>
-            {item.isDue && (
-              <View style={styles.dueTag}>
-                <Text style={styles.dueText}>Due</Text>
-              </View>
-            )}
+            <TouchableOpacity
+              style={styles.cardHeader}
+              onPress={() =>
+                item.type === "Breastfeed" &&
+                router.push("/screens/NursingScreen")
+              }
+            >
+              <Text style={[styles.trackingType, { color: item.textColor }]}>
+                {item.type}
+              </Text>
+              {item.isDue && (
+                <View style={styles.dueTag}>
+                  <Text style={styles.dueText}>Due</Text>
+                </View>
+              )}
+            </TouchableOpacity>
           </View>
           {item.type === "Sleep" && sleepTimer.isRunning && (
             <Animated.View
