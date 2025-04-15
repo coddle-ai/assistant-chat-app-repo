@@ -188,21 +188,26 @@ const ManualEntryButton = memo(({ onPress }) => (
   </TouchableOpacity>
 ));
 
-const SaveButton = memo(({ onPress, disabled }) => (
-  <TouchableOpacity
-    style={[styles.saveButton, disabled && styles.buttonDisabled]}
-    onPress={onPress}
-    disabled={disabled}
-  >
-    <IconSymbol
-      name="square.and.arrow.down"
-      size={20}
-      color={disabled ? "#94A3B8" : "#FFFFFF"}
-      style={{ marginRight: 8 }}
-    />
-    <Text style={[styles.buttonText, styles.saveButtonText]}>Save Session</Text>
-  </TouchableOpacity>
-));
+const SaveButton = memo(
+  ({ onPress }) => (
+    <TouchableOpacity
+      style={styles.saveButton}
+      onPress={onPress}
+      activeOpacity={0.9}
+    >
+      <View style={styles.saveButtonContent}>
+        <IconSymbol
+          name="square.and.arrow.down"
+          size={20}
+          color="#FFFFFF"
+          style={{ marginRight: 8 }}
+        />
+        <Text style={styles.saveButtonText}>Save Session</Text>
+      </View>
+    </TouchableOpacity>
+  ),
+  (prevProps, nextProps) => true
+);
 
 const DateTimeModal = ({ visible, onClose, onSave, currentDate }) => {
   const [selectedDate, setSelectedDate] = useState(currentDate);
@@ -520,6 +525,8 @@ export default function NursingScreen() {
     setCurrentDate(newDate);
     setShowDatePicker(false);
   };
+
+  const isTimerEmpty = timerState.totalTime === 0;
 
   return (
     <View style={styles.outerContainer}>
@@ -841,10 +848,7 @@ export default function NursingScreen() {
         </View>
       </SafeAreaView>
       <View style={styles.bottomBar}>
-        <SaveButton
-          onPress={handleSave}
-          disabled={timerState.totalTime === 0}
-        />
+        <SaveButton onPress={handleSave} />
       </View>
       <ManualEntryModal
         visible={showManualEntry}
@@ -871,10 +875,10 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+    paddingTop: Platform.OS === "ios" ? 8 : 16,
   },
   timeSection: {
-    paddingHorizontal: 24,
-    marginTop: 24,
+    paddingHorizontal: 20,
     marginBottom: 24,
   },
   timeHeader: {
@@ -882,7 +886,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     backgroundColor: "#FFFFFF",
-    padding: 24,
+    padding: 20,
     borderRadius: 24,
     ...Platform.select({
       ios: {
@@ -899,10 +903,10 @@ const styles = StyleSheet.create({
   timeIconContainer: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 12,
   },
   timeLabel: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: "700",
     color: "#0F766E",
     letterSpacing: -0.5,
@@ -912,27 +916,27 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#F0FDFA",
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: "rgba(15, 118, 110, 0.1)",
   },
   dateText: {
-    fontSize: 15,
+    fontSize: 16,
     color: "#0F766E",
     fontWeight: "600",
   },
   totalTimerSection: {
     position: "relative",
-    marginVertical: 24,
-    marginHorizontal: 24,
+    marginHorizontal: 20,
+    marginBottom: 32,
   },
   totalTimerTouchable: {
     width: "100%",
   },
   totalTimerContainer: {
-    padding: 36,
-    borderRadius: 100,
+    padding: 32,
+    borderRadius: 80,
     ...Platform.select({
       ios: {
         shadowColor: "#0F766E",
@@ -973,7 +977,7 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
   },
   playIconContainer: {
-    marginTop: 0,
+    marginTop: 4,
   },
   mainPlayIcon: {
     opacity: 0.9,
@@ -981,18 +985,18 @@ const styles = StyleSheet.create({
   sideButtonsContainer: {
     flexDirection: "row",
     justifyContent: "center",
-    gap: 40,
-    marginBottom: 48,
-    paddingHorizontal: 24,
+    gap: 32,
+    paddingHorizontal: 20,
+    marginBottom: Platform.OS === "ios" ? 90 : 80,
   },
   sideButtonWrapper: {
     alignItems: "center",
-    gap: 16,
+    gap: 20,
   },
   sideButton: {
-    width: 150,
-    height: 150,
-    borderRadius: 75,
+    width: 140,
+    height: 140,
+    borderRadius: 70,
     backgroundColor: "#FFFFFF",
     justifyContent: "center",
     alignItems: "center",
@@ -1026,13 +1030,13 @@ const styles = StyleSheet.create({
     opacity: 0.9,
   },
   sideTime: {
-    fontSize: 32,
+    fontSize: 30,
     fontWeight: "700",
     color: "#0F766E",
     marginTop: 12,
     letterSpacing: -0.5,
     textAlign: "center",
-    lineHeight: 36,
+    lineHeight: 34,
   },
   activeText: {
     color: "#FFFFFF",
@@ -1040,7 +1044,7 @@ const styles = StyleSheet.create({
   sideLabelContainer: {
     paddingHorizontal: 20,
     paddingVertical: 10,
-    borderRadius: 20,
+    borderRadius: 16,
     backgroundColor: "#F0FDFA",
     justifyContent: "center",
     alignItems: "center",
@@ -1099,12 +1103,8 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     backgroundColor: "#0F766E",
-    paddingVertical: 16,
-    paddingHorizontal: 20,
     borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    flexDirection: "row",
+    overflow: "hidden",
     ...Platform.select({
       ios: {
         shadowColor: "#0F766E",
@@ -1113,15 +1113,28 @@ const styles = StyleSheet.create({
         shadowRadius: 12,
       },
       android: {
-        elevation: 3,
+        elevation: 4,
       },
     }),
   },
-  saveButtonText: {
-    color: "#FFFFFF",
-  },
   buttonDisabled: {
     backgroundColor: "#E2E8F0",
+  },
+  saveButtonContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+  },
+  saveButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#FFFFFF",
+    letterSpacing: -0.3,
+  },
+  saveButtonTextDisabled: {
+    color: "#94A3B8",
   },
   errorContainer: {
     backgroundColor: "#FEE2E2",
@@ -1138,18 +1151,28 @@ const styles = StyleSheet.create({
     borderColor: "#DC2626",
     backgroundColor: "#FEF2F2",
   },
-  saveButtonDisabled: {
-    backgroundColor: "#94A3B8",
-  },
   bottomBar: {
     position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
-    paddingHorizontal: 24,
-    paddingBottom: Platform.OS === "ios" ? 40 : 24,
+    paddingHorizontal: 20,
+    paddingBottom: Platform.OS === "ios" ? 32 : 24,
     paddingTop: 12,
     backgroundColor: "#F0FDFA",
+    borderTopWidth: 1,
+    borderTopColor: "rgba(15, 118, 110, 0.08)",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#0F766E",
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
   },
   segmentedControl: {
     flexDirection: "row",
@@ -1291,11 +1314,20 @@ const styles = StyleSheet.create({
     color: "white",
   },
   saveButton: {
-    backgroundColor: "#0D9488",
-    height: 48,
-    borderRadius: 8,
-    justifyContent: "center",
-    alignItems: "center",
+    backgroundColor: "#0F766E",
+    borderRadius: 16,
+    overflow: "hidden",
+    ...Platform.select({
+      ios: {
+        shadowColor: "#0F766E",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   saveButtonText: {
     color: "white",
@@ -1428,5 +1460,14 @@ const styles = StyleSheet.create({
   },
   timeButtonTextSelected: {
     color: "#FFFFFF",
+  },
+  disabledSideButton: {
+    backgroundColor: "#E2E8F0",
+  },
+  disabledLabel: {
+    backgroundColor: "#E2E8F0",
+  },
+  disabledLabelText: {
+    color: "#6B7280",
   },
 });
