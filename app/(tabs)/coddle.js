@@ -1273,14 +1273,23 @@ export default function CoddleScreen() {
     <View style={styles.summaryCard}>
       <View style={styles.summaryHeader}>
         <Text style={styles.sectionTitle}>Today's Summary</Text>
-        <TouchableOpacity
-          style={styles.viewAllButton}
-          activeOpacity={0.7}
-          onPress={() => router.push("/(tabs)/daily-logs")}
-        >
-          <Text style={styles.viewAllText}>View All</Text>
-          <IconSymbol size={14} name="chevron.right" color="#4B5563" />
-        </TouchableOpacity>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity
+            style={styles.analyticsButton}
+            activeOpacity={0.7}
+            onPress={() => router.push("/screens/NursingAnalyticsScreen")}
+          >
+            <IconSymbol size={20} name="chart.bar.fill" color="#4B5563" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.viewAllButton}
+            activeOpacity={0.7}
+            onPress={() => router.push("/(tabs)/daily-logs")}
+          >
+            <Text style={styles.viewAllText}>View All</Text>
+            <IconSymbol size={14} name="chevron.right" color="#4B5563" />
+          </TouchableOpacity>
+        </View>
       </View>
       <View style={styles.summarySection}>
         <Text style={styles.sectionTitle}>Feeding</Text>
@@ -1521,7 +1530,10 @@ export default function CoddleScreen() {
         <TouchableOpacity style={styles.navButton}>
           <IconSymbol size={24} name="list.bullet" color="#4B5563" />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navButton}>
+        <TouchableOpacity
+          style={styles.navButton}
+          onPress={() => router.push("/screens/NursingAnalyticsScreen")}
+        >
           <IconSymbol size={24} name="chart.bar" color="#4B5563" />
         </TouchableOpacity>
         <TouchableOpacity style={styles.navButton}>
@@ -2522,5 +2534,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "500",
     color: "#1F2937",
+  },
+  headerButtons: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  analyticsButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: "#F3F4F6",
   },
 });

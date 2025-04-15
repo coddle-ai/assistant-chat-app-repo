@@ -1,0 +1,6 @@
+module Pods_AssistantChatAppExpo {
+  umbrella header "Pods-AssistantChatAppExpo-umbrella.h"
+
+  export *
+  module * { export * }
+}
