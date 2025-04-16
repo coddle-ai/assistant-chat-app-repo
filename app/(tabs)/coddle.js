@@ -1549,6 +1549,12 @@ export default function CoddleScreen() {
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.navButton}
+          onPress={() => router.push("/screens/PediatricianReportScreen")}
+        >
+          <IconSymbol size={24} name="doc.text" color="#4B5563" />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.navButton}
           onPress={() => router.push("/screens/ChildProfileScreen")}
         >
           <IconSymbol size={24} name="person" color="#4B5563" />
