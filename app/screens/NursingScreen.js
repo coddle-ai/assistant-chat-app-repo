@@ -211,6 +211,7 @@ const SaveButton = memo(
 
 const DateTimeModal = ({ visible, onClose, onSave, currentDate }) => {
   const [selectedDate, setSelectedDate] = useState(currentDate);
+  const [error, setError] = useState("");
 
   const handleDateChange = (event, date) => {
     if (Platform.OS === "android") {
@@ -220,6 +221,12 @@ const DateTimeModal = ({ visible, onClose, onSave, currentDate }) => {
       }
     }
     if (date) {
+      // Validate that the selected date is not in the future
+      if (date > new Date()) {
+        setError("Cannot select a future date and time");
+        return;
+      }
+      setError("");
       setSelectedDate(date);
       if (Platform.OS === "android") {
         onSave(date);
@@ -229,6 +236,11 @@ const DateTimeModal = ({ visible, onClose, onSave, currentDate }) => {
   };
 
   const handleSave = () => {
+    if (selectedDate > new Date()) {
+      setError("Cannot select a future date and time");
+      return;
+    }
+    setError("");
     onSave(selectedDate);
     onClose();
   };
@@ -241,6 +253,7 @@ const DateTimeModal = ({ visible, onClose, onSave, currentDate }) => {
           mode="datetime"
           is24Hour={true}
           onChange={handleDateChange}
+          maximumDate={new Date()}
         />
       );
     }
@@ -257,9 +270,9 @@ const DateTimeModal = ({ visible, onClose, onSave, currentDate }) => {
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Set Date & Time</Text>
+            <Text style={styles.modalTitle}>Select Date & Time</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Text style={styles.closeButtonText}>✕</Text>
+              <IconSymbol name="xmark" size={20} color="#1F2937" />
             </TouchableOpacity>
           </View>
 
@@ -269,11 +282,35 @@ const DateTimeModal = ({ visible, onClose, onSave, currentDate }) => {
             display="spinner"
             onChange={handleDateChange}
             style={{ height: 200 }}
+            maximumDate={new Date()}
           />
 
-          <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-            <Text style={styles.saveButtonText}>Set Date & Time</Text>
-          </TouchableOpacity>
+          {error ? (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          ) : null}
+
+          <LinearGradient
+            colors={["#0F766E", "#0D9488"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.saveButtonGradient}
+          >
+            <TouchableOpacity
+              style={styles.saveButtonContent}
+              onPress={handleSave}
+              activeOpacity={0.9}
+            >
+              <IconSymbol
+                name="checkmark"
+                size={20}
+                color="#FFFFFF"
+                style={{ marginRight: 8 }}
+              />
+              <Text style={styles.saveButtonText}>Save</Text>
+            </TouchableOpacity>
+          </LinearGradient>
         </View>
       </View>
     </Modal>
@@ -1244,78 +1281,42 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: "white",
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 24,
+    padding: 24,
     width: "90%",
     maxWidth: 400,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#0F766E",
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.2,
+        shadowRadius: 24,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
   },
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 20,
+    marginBottom: 24,
   },
   modalTitle: {
     fontSize: 20,
     fontWeight: "600",
-    color: "#1F2937",
+    color: "#0F766E",
+    letterSpacing: -0.5,
   },
   closeButton: {
     padding: 8,
-  },
-  closeButtonText: {
-    fontSize: 18,
-    color: "#6B7280",
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: "500",
-    color: "#374151",
-    marginBottom: 8,
-  },
-  timeInputSection: {
-    marginBottom: 24,
-  },
-  timeInput: {
-    height: 48,
-    borderWidth: 1,
-    borderColor: "#D1D5DB",
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    fontSize: 16,
-    color: "#1F2937",
-  },
-  dateSection: {
-    marginBottom: 24,
-  },
-  dateGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    gap: 8,
-  },
-  dateButton: {
-    width: "31%",
-    height: 48,
+    borderRadius: 20,
     backgroundColor: "#F3F4F6",
-    borderRadius: 8,
-    justifyContent: "center",
-    alignItems: "center",
   },
-  selectedDateButton: {
-    backgroundColor: "#0D9488",
-  },
-  dateButtonText: {
-    fontSize: 14,
-    color: "#374151",
-    fontWeight: "500",
-  },
-  selectedDateButtonText: {
-    color: "white",
-  },
-  saveButton: {
-    backgroundColor: "#0F766E",
+  saveButtonGradient: {
     borderRadius: 16,
+    marginTop: 24,
     overflow: "hidden",
     ...Platform.select({
       ios: {
@@ -1329,9 +1330,27 @@ const styles = StyleSheet.create({
       },
     }),
   },
+  saveButtonContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 16,
+  },
   saveButtonText: {
-    color: "white",
     fontSize: 16,
+    fontWeight: "600",
+    color: "#FFFFFF",
+    letterSpacing: -0.3,
+  },
+  errorContainer: {
+    backgroundColor: "#FEE2E2",
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 16,
+  },
+  errorText: {
+    color: "#DC2626",
+    fontSize: 14,
     fontWeight: "500",
   },
   timerManualEntry: {
