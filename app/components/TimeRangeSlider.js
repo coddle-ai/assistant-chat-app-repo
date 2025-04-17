@@ -3,238 +3,333 @@ import {
   View,
   Text,
   StyleSheet,
-  Dimensions,
   TouchableOpacity,
   Platform,
+  Modal,
 } from "react-native";
-import { IconSymbol } from "@/components/ui/IconSymbol";
+import DateTimePicker from "@react-native-community/datetimepicker";
+import { MaterialIcons, Ionicons } from "@expo/vector-icons";
 
-const SLIDER_WIDTH = Dimensions.get("window").width - 48; // Increased width to match screenshot
-const TIME_MARKS = [
-  "6AM",
-  "8AM",
-  "10AM",
-  "12PM",
-  "2PM",
-  "4PM",
-  "6PM",
-  "8PM",
-  "10PM",
-];
-
-export const TimeRangeSlider = ({
-  startTime = "8:00 AM",
-  endTime = "6:15 PM",
+const TimeRangeSlider = ({
+  startTime,
+  endTime,
   onStartTimeChange,
   onEndTimeChange,
-  title = "Day vs night time start times",
 }) => {
-  const [sliderValues, setSliderValues] = useState({
-    start: TIME_MARKS.indexOf("8AM") * (SLIDER_WIDTH / (TIME_MARKS.length - 1)),
-    end: TIME_MARKS.indexOf("6PM") * (SLIDER_WIDTH / (TIME_MARKS.length - 1)),
-  });
+  const [showStartPicker, setShowStartPicker] = useState(false);
+  const [showEndPicker, setShowEndPicker] = useState(false);
+  const [tempTime, setTempTime] = useState(null);
 
-  const getTimeFromPosition = (position) => {
-    const index = Math.round(
-      (position / SLIDER_WIDTH) * (TIME_MARKS.length - 1)
+  const ensureValidDate = (time) => {
+    if (time instanceof Date) return time;
+    if (typeof time === "string") return new Date(time);
+    return new Date();
+  };
+
+  const formatTime = (time) => {
+    if (!time) return "INVALID DATE";
+    const date = ensureValidDate(time);
+    return date
+      .toLocaleTimeString([], {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      })
+      .toUpperCase();
+  };
+
+  const handleStartTimeChange = (event, selectedTime) => {
+    if (Platform.OS === "android") {
+      setShowStartPicker(false);
+      if (selectedTime) {
+        onStartTimeChange(selectedTime);
+      }
+    } else {
+      setTempTime(selectedTime || tempTime);
+    }
+  };
+
+  const handleEndTimeChange = (event, selectedTime) => {
+    if (Platform.OS === "android") {
+      setShowEndPicker(false);
+      if (selectedTime) {
+        onEndTimeChange(selectedTime);
+      }
+    } else {
+      setTempTime(selectedTime || tempTime);
+    }
+  };
+
+  const handleIOSConfirm = (isStart) => {
+    if (tempTime) {
+      if (isStart) {
+        onStartTimeChange(tempTime);
+      } else {
+        onEndTimeChange(tempTime);
+      }
+    }
+    setShowStartPicker(false);
+    setShowEndPicker(false);
+    setTempTime(null);
+  };
+
+  const handleIOSCancel = () => {
+    setShowStartPicker(false);
+    setShowEndPicker(false);
+    setTempTime(null);
+  };
+
+  const renderTimeButton = (time, label, onPress) => (
+    <TouchableOpacity style={styles.timeButton} onPress={onPress}>
+      <View style={styles.timeContent}>
+        <Text style={styles.timeText}>{formatTime(time)}</Text>
+        <Text style={styles.timeLabel}>{label}</Text>
+      </View>
+      <View style={styles.editIconContainer}>
+        <MaterialIcons name="edit" size={20} color="#6B7280" />
+      </View>
+    </TouchableOpacity>
+  );
+
+  const renderIOSPicker = (isStart) => {
+    const visible = isStart ? showStartPicker : showEndPicker;
+    const currentTime = isStart ? startTime : endTime;
+    const initialDate = ensureValidDate(tempTime || currentTime);
+
+    return (
+      <Modal transparent visible={visible} animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <TouchableOpacity onPress={handleIOSCancel}>
+                <Text style={styles.modalButton}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => handleIOSConfirm(isStart)}>
+                <Text style={[styles.modalButton, styles.confirmButton]}>
+                  Done
+                </Text>
+              </TouchableOpacity>
+            </View>
+            <DateTimePicker
+              value={initialDate}
+              mode="time"
+              display="spinner"
+              onChange={isStart ? handleStartTimeChange : handleEndTimeChange}
+            />
+          </View>
+        </View>
+      </Modal>
     );
-    return TIME_MARKS[Math.max(0, Math.min(TIME_MARKS.length - 1, index))];
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>{title}</Text>
-      <Text style={styles.subtitle}>
+      <Text style={styles.title}>Day vs night time start times</Text>
+      <Text style={styles.description}>
         These cut-off times are used when categorizing an event as part of the
         day vs. night.
       </Text>
 
       <View style={styles.timeContainer}>
-        <View style={styles.timeBox}>
-          <Text style={styles.timeValue}>{startTime}</Text>
-          <Text style={styles.timeLabel}>START</Text>
+        {renderTimeButton(startTime, "START", () => {
+          const initialDate = ensureValidDate(startTime);
+          if (Platform.OS === "ios") {
+            setTempTime(initialDate);
+          }
+          setShowStartPicker(true);
+        })}
+        <View style={styles.arrowContainer}>
+          <MaterialIcons name="arrow-forward" size={24} color="#6B7280" />
         </View>
+        {renderTimeButton(endTime, "END", () => {
+          const initialDate = ensureValidDate(endTime);
+          if (Platform.OS === "ios") {
+            setTempTime(initialDate);
+          }
+          setShowEndPicker(true);
+        })}
+      </View>
 
-        <View style={styles.arrow}>
-          <IconSymbol name="arrow.right" size={20} color="#0F766E" />
+      <View style={styles.timeline}>
+        <View style={styles.timeMarkers}>
+          <Text style={styles.timeMarker}>6AM</Text>
+          <Text style={styles.timeMarker}>8AM</Text>
+          <Text style={styles.timeMarker}>10AM</Text>
+          <Text style={styles.timeMarker}>12PM</Text>
+          <Text style={styles.timeMarker}>2PM</Text>
+          <Text style={styles.timeMarker}>4PM</Text>
+          <Text style={styles.timeMarker}>6PM</Text>
+          <Text style={styles.timeMarker}>8PM</Text>
+          <Text style={styles.timeMarker}>10PM</Text>
         </View>
-
-        <View style={styles.timeBox}>
-          <Text style={styles.timeValue}>{endTime}</Text>
-          <Text style={styles.timeLabel}>END</Text>
+        <View style={styles.timelineBar}>
+          <View style={styles.daySleepIndicator}>
+            <Ionicons name="sunny" size={20} color="#FFFFFF" />
+            <Text style={styles.indicatorText}>Day Sleep</Text>
+          </View>
         </View>
       </View>
 
-      <View style={styles.sliderContainer}>
-        <View style={styles.sliderTrack} />
-        <View
-          style={[
-            styles.sliderFill,
-            {
-              left: sliderValues.start,
-              width: sliderValues.end - sliderValues.start,
-            },
-          ]}
+      {Platform.OS === "android" && showStartPicker && (
+        <DateTimePicker
+          value={ensureValidDate(startTime)}
+          mode="time"
+          is24Hour={false}
+          display="default"
+          onChange={handleStartTimeChange}
         />
+      )}
 
-        <View style={styles.markersContainer}>
-          {TIME_MARKS.map((time, index) => (
-            <View
-              key={time}
-              style={[
-                styles.marker,
-                { left: index * (SLIDER_WIDTH / (TIME_MARKS.length - 1)) },
-              ]}
-            >
-              <Text style={styles.markerText}>{time}</Text>
-            </View>
-          ))}
-        </View>
+      {Platform.OS === "android" && showEndPicker && (
+        <DateTimePicker
+          value={ensureValidDate(endTime)}
+          mode="time"
+          is24Hour={false}
+          display="default"
+          onChange={handleEndTimeChange}
+        />
+      )}
 
-        <View style={[styles.sliderHandle, { left: sliderValues.start }]}>
-          <View style={styles.handleKnob} />
-        </View>
-        <View style={[styles.sliderHandle, { left: sliderValues.end }]}>
-          <View style={styles.handleKnob} />
-        </View>
-      </View>
-
-      <View style={styles.daySleepContainer}>
-        <View style={styles.daySleepIndicator}>
-          <IconSymbol name="sun.max.fill" size={16} color="#0F766E" />
-          <Text style={styles.daySleepText}>Day Sleep</Text>
-        </View>
-      </View>
+      {Platform.OS === "ios" && renderIOSPicker(true)}
+      {Platform.OS === "ios" && renderIOSPicker(false)}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    padding: 0,
-    backgroundColor: "transparent",
     marginVertical: 16,
+    backgroundColor: "#F8FAFC",
+    padding: 16,
+    borderRadius: 12,
   },
   title: {
-    fontSize: 18,
+    fontSize: 24,
     fontWeight: "600",
-    color: "#0F766E",
+    color: "#1F2937",
     marginBottom: 8,
   },
-  subtitle: {
-    fontSize: 14,
-    color: "#64748B",
+  description: {
+    fontSize: 16,
+    color: "#6B7280",
     marginBottom: 24,
-    lineHeight: 20,
+    lineHeight: 24,
   },
   timeContainer: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 48,
-    paddingHorizontal: 24,
+    justifyContent: "center",
+    marginBottom: 32,
+    gap: 12,
   },
-  timeBox: {
-    alignItems: "center",
-  },
-  timeValue: {
-    fontSize: 24,
-    fontWeight: "600",
-    color: "#0F766E",
-    marginBottom: 4,
-  },
-  timeLabel: {
-    fontSize: 14,
-    color: "#64748B",
-    fontWeight: "500",
-  },
-  arrow: {
-    padding: 8,
-  },
-  sliderContainer: {
-    height: 60,
-    width: SLIDER_WIDTH,
-    alignSelf: "center",
-  },
-  sliderTrack: {
-    position: "absolute",
-    top: 20,
-    width: "100%",
-    height: 2,
-    backgroundColor: "#E2E8F0",
-    borderRadius: 1,
-  },
-  sliderFill: {
-    position: "absolute",
-    top: 20,
-    height: 2,
-    backgroundColor: "#0F766E",
-    borderRadius: 1,
-  },
-  markersContainer: {
-    position: "absolute",
-    top: 30,
-    width: "100%",
-  },
-  marker: {
-    position: "absolute",
-    alignItems: "center",
-    transform: [{ translateX: -15 }],
-  },
-  markerText: {
-    fontSize: 12,
-    color: "#64748B",
-    marginTop: 8,
-  },
-  sliderHandle: {
-    position: "absolute",
-    top: 12,
-    width: 16,
-    height: 16,
+  timeButton: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 8,
-    transform: [{ translateX: -8 }],
-    borderWidth: 2,
-    borderColor: "#0F766E",
+    borderRadius: 16,
+    padding: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    flex: 1,
     ...Platform.select({
       ios: {
-        shadowColor: "#0F766E",
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.2,
-        shadowRadius: 2,
+        shadowColor: "rgba(0,0,0,0.1)",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 1,
+        shadowRadius: 4,
       },
       android: {
         elevation: 2,
       },
     }),
   },
-  handleKnob: {
-    position: "absolute",
-    top: 3,
-    left: 3,
-    width: 6,
-    height: 6,
-    backgroundColor: "#0F766E",
-    borderRadius: 3,
+  timeContent: {
+    flex: 1,
   },
-  daySleepContainer: {
+  timeText: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: "#1F2937",
+    marginBottom: 4,
+  },
+  timeLabel: {
+    fontSize: 12,
+    color: "#6B7280",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  editIconContainer: {
+    marginLeft: 12,
+    width: 24,
+    height: 24,
     alignItems: "center",
-    marginTop: 24,
+    justifyContent: "center",
+  },
+  arrowContainer: {
+    width: 24,
+    height: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  timeline: {
+    marginTop: 8,
+  },
+  timeMarkers: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  timeMarker: {
+    fontSize: 12,
+    color: "#6B7280",
+  },
+  timelineBar: {
+    height: 48,
+    backgroundColor: "#E5E7EB",
+    borderRadius: 24,
+    padding: 4,
   },
   daySleepIndicator: {
+    backgroundColor: "#0F766E",
+    borderRadius: 20,
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F0FDFA",
+    justifyContent: "center",
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
     gap: 8,
-    borderWidth: 1,
-    borderColor: "#0F766E",
   },
-  daySleepText: {
+  indicatorText: {
+    color: "#FFFFFF",
     fontSize: 14,
-    fontWeight: "500",
+    fontWeight: "600",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: "#FFFFFF",
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    paddingBottom: 20,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E7EB",
+  },
+  modalButton: {
+    fontSize: 16,
     color: "#0F766E",
+    paddingHorizontal: 8,
+  },
+  confirmButton: {
+    fontWeight: "600",
   },
 });
+
+export default TimeRangeSlider;
