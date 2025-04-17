@@ -13,7 +13,7 @@ import {
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import { LinearGradient } from "expo-linear-gradient";
 import * as ImagePicker from "expo-image-picker";
-import { TimeRangeSlider } from "../components/TimeRangeSlider";
+import TimeRangeSlider from "../components/TimeRangeSlider";
 
 const ProfileSection = ({ title, children }) => (
   <View style={styles.section}>

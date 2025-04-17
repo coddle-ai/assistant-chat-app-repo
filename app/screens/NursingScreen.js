@@ -19,39 +19,54 @@ import { format, set, subDays, isSameDay } from "date-fns";
 
 const ManualEntryModal = ({ visible, onClose, onSave }) => {
   const [entryType, setEntryType] = useState("total"); // "total" or "sides"
+  const [totalHours, setTotalHours] = useState("");
   const [totalMinutes, setTotalMinutes] = useState("");
+  const [leftHours, setLeftHours] = useState("");
   const [leftMinutes, setLeftMinutes] = useState("");
+  const [rightHours, setRightHours] = useState("");
   const [rightMinutes, setRightMinutes] = useState("");
   const [error, setError] = useState("");
 
-  const validateAndSetMinutes = (value, setter) => {
-    const numValue = parseInt(value) || 0;
-    if (numValue > 120) {
-      setError("Time cannot exceed 120 minutes");
-      setter("120");
+  const validateAndSetTime = (hours, minutes, setter) => {
+    const numHours = parseInt(hours) || 0;
+    const numMinutes = parseInt(minutes) || 0;
+
+    if (numHours > 24) {
+      setError("Hours cannot exceed 24");
+      setter("24");
+    } else if (numMinutes > 59) {
+      setError("Minutes cannot exceed 59");
+      setter("59");
     } else {
       setError("");
-      setter(value);
     }
   };
 
   const handleSave = () => {
-    const total = parseInt(totalMinutes) || 0;
-    const left = parseInt(leftMinutes) || 0;
-    const right = parseInt(rightMinutes) || 0;
+    const totalH = parseInt(totalHours) || 0;
+    const totalM = parseInt(totalMinutes) || 0;
+    const leftH = parseInt(leftHours) || 0;
+    const leftM = parseInt(leftMinutes) || 0;
+    const rightH = parseInt(rightHours) || 0;
+    const rightM = parseInt(rightMinutes) || 0;
+
+    const totalTime = totalH * 60 + totalM;
+    const leftTime = leftH * 60 + leftM;
+    const rightTime = rightH * 60 + rightM;
 
     if (entryType === "total") {
-      if (total > 120) {
-        setError("Total time cannot exceed 120 minutes");
+      if (totalTime > 1440) {
+        // 24 hours in minutes
+        setError("Total time cannot exceed 24 hours");
         return;
       }
-      onSave({ total });
+      onSave({ total: totalTime });
     } else {
-      if (left + right > 120) {
-        setError("Combined time cannot exceed 120 minutes");
+      if (leftTime + rightTime > 1440) {
+        setError("Combined time cannot exceed 24 hours");
         return;
       }
-      onSave({ left, right });
+      onSave({ left: leftTime, right: rightTime });
     }
     setError("");
     onClose();
@@ -67,7 +82,7 @@ const ManualEntryModal = ({ visible, onClose, onSave }) => {
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Manual Time Entry</Text>
+            <Text style={styles.modalTitle}>Time After Event</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
               <IconSymbol name="xmark" size={20} color="#1F2937" />
             </TouchableOpacity>
@@ -122,45 +137,105 @@ const ManualEntryModal = ({ visible, onClose, onSave }) => {
 
           {entryType === "total" ? (
             <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Total Time (minutes)</Text>
-              <TextInput
-                style={[styles.timeInput, error && styles.timeInputError]}
-                value={totalMinutes}
-                onChangeText={(value) =>
-                  validateAndSetMinutes(value, setTotalMinutes)
-                }
-                keyboardType="numeric"
-                placeholder="Enter minutes (max 120)"
-                maxLength={3}
-              />
+              <Text style={styles.inputLabel}>Total Time</Text>
+              <View style={styles.timeInputRow}>
+                <View style={styles.timeInputGroup}>
+                  <TextInput
+                    style={[styles.timeInput, error && styles.timeInputError]}
+                    value={totalHours}
+                    onChangeText={(value) => {
+                      setTotalHours(value);
+                      validateAndSetTime(value, totalMinutes, setTotalHours);
+                    }}
+                    keyboardType="numeric"
+                    placeholder="HH"
+                    maxLength={2}
+                  />
+                  <Text style={styles.timeLabel}>hours</Text>
+                </View>
+                <View style={styles.timeInputGroup}>
+                  <TextInput
+                    style={[styles.timeInput, error && styles.timeInputError]}
+                    value={totalMinutes}
+                    onChangeText={(value) => {
+                      setTotalMinutes(value);
+                      validateAndSetTime(totalHours, value, setTotalMinutes);
+                    }}
+                    keyboardType="numeric"
+                    placeholder="MM"
+                    maxLength={2}
+                  />
+                  <Text style={styles.timeLabel}>minutes</Text>
+                </View>
+              </View>
             </View>
           ) : (
             <>
               <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Left Side (minutes)</Text>
-                <TextInput
-                  style={[styles.timeInput, error && styles.timeInputError]}
-                  value={leftMinutes}
-                  onChangeText={(value) =>
-                    validateAndSetMinutes(value, setLeftMinutes)
-                  }
-                  keyboardType="numeric"
-                  placeholder="Enter minutes"
-                  maxLength={3}
-                />
+                <Text style={styles.inputLabel}>Left Side</Text>
+                <View style={styles.timeInputRow}>
+                  <View style={styles.timeInputGroup}>
+                    <TextInput
+                      style={[styles.timeInput, error && styles.timeInputError]}
+                      value={leftHours}
+                      onChangeText={(value) => {
+                        setLeftHours(value);
+                        validateAndSetTime(value, leftMinutes, setLeftHours);
+                      }}
+                      keyboardType="numeric"
+                      placeholder="HH"
+                      maxLength={2}
+                    />
+                    <Text style={styles.timeLabel}>hours</Text>
+                  </View>
+                  <View style={styles.timeInputGroup}>
+                    <TextInput
+                      style={[styles.timeInput, error && styles.timeInputError]}
+                      value={leftMinutes}
+                      onChangeText={(value) => {
+                        setLeftMinutes(value);
+                        validateAndSetTime(leftHours, value, setLeftMinutes);
+                      }}
+                      keyboardType="numeric"
+                      placeholder="MM"
+                      maxLength={2}
+                    />
+                    <Text style={styles.timeLabel}>minutes</Text>
+                  </View>
+                </View>
               </View>
               <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Right Side (minutes)</Text>
-                <TextInput
-                  style={[styles.timeInput, error && styles.timeInputError]}
-                  value={rightMinutes}
-                  onChangeText={(value) =>
-                    validateAndSetMinutes(value, setRightMinutes)
-                  }
-                  keyboardType="numeric"
-                  placeholder="Enter minutes"
-                  maxLength={3}
-                />
+                <Text style={styles.inputLabel}>Right Side</Text>
+                <View style={styles.timeInputRow}>
+                  <View style={styles.timeInputGroup}>
+                    <TextInput
+                      style={[styles.timeInput, error && styles.timeInputError]}
+                      value={rightHours}
+                      onChangeText={(value) => {
+                        setRightHours(value);
+                        validateAndSetTime(value, rightMinutes, setRightHours);
+                      }}
+                      keyboardType="numeric"
+                      placeholder="HH"
+                      maxLength={2}
+                    />
+                    <Text style={styles.timeLabel}>hours</Text>
+                  </View>
+                  <View style={styles.timeInputGroup}>
+                    <TextInput
+                      style={[styles.timeInput, error && styles.timeInputError]}
+                      value={rightMinutes}
+                      onChangeText={(value) => {
+                        setRightMinutes(value);
+                        validateAndSetTime(rightHours, value, setRightMinutes);
+                      }}
+                      keyboardType="numeric"
+                      placeholder="MM"
+                      maxLength={2}
+                    />
+                    <Text style={styles.timeLabel}>minutes</Text>
+                  </View>
+                </View>
               </View>
             </>
           )}
@@ -576,32 +651,40 @@ export default function NursingScreen() {
                 <IconSymbol name="clock" size={24} color="#0F766E" />
                 <Text style={styles.timeLabel}>Time</Text>
               </View>
-              <TouchableOpacity
-                style={styles.dateContainer}
-                onPress={() => setShowDatePicker(true)}
-                activeOpacity={0.7}
-              >
-                <IconSymbol
-                  name="calendar"
-                  size={16}
-                  color="#0F766E"
-                  style={{ marginRight: 8, opacity: 0.8 }}
-                />
-                <Text style={styles.dateText}>
-                  {currentDate.toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </Text>
-                <IconSymbol
-                  name="chevron.down"
-                  size={12}
-                  color="#0F766E"
-                  style={{ marginLeft: 4, opacity: 0.6 }}
-                />
-              </TouchableOpacity>
+              <View style={styles.headerRightContainer}>
+                <TouchableOpacity
+                  style={styles.dateContainer}
+                  onPress={() => setShowDatePicker(true)}
+                  activeOpacity={0.7}
+                >
+                  <IconSymbol
+                    name="calendar"
+                    size={16}
+                    color="#0F766E"
+                    style={{ marginRight: 8, opacity: 0.8 }}
+                  />
+                  <Text style={styles.dateText}>
+                    {currentDate.toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.timerButton}
+                  onPress={() => router.push("/screens/ReminderScreen")}
+                  activeOpacity={0.7}
+                >
+                  <IconSymbol
+                    name="timer"
+                    size={20}
+                    color="#0F766E"
+                    style={{ opacity: 0.8 }}
+                  />
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
 
@@ -923,17 +1006,17 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     backgroundColor: "#FFFFFF",
-    padding: 20,
-    borderRadius: 24,
+    padding: 10,
+    borderRadius: 12,
     ...Platform.select({
       ios: {
         shadowColor: "#0F766E",
-        shadowOffset: { width: 0, height: 4 },
+        shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
-        shadowRadius: 16,
+        shadowRadius: 8,
       },
       android: {
-        elevation: 3,
+        elevation: 2,
       },
     }),
   },
@@ -947,6 +1030,11 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#0F766E",
     letterSpacing: -0.5,
+  },
+  headerRightContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
   },
   dateContainer: {
     flexDirection: "row",
@@ -1256,22 +1344,27 @@ const styles = StyleSheet.create({
     color: "#374151",
     marginBottom: 8,
   },
-  timeInputSection: {
-    marginBottom: 24,
-    backgroundColor: "#F9FAFB",
-    borderRadius: 12,
-    padding: 16,
+  timeInputRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  timeInputGroup: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
   },
   timeInput: {
-    backgroundColor: "#FFFFFF",
+    width: 60,
+    height: 40,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: "rgba(15, 118, 110, 0.1)",
     borderRadius: 8,
-    padding: 12,
-    fontSize: 18,
-    color: "#1F2937",
-    textAlign: "center",
-    marginTop: 8,
+    padding: 8,
+  },
+  timeLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#0F766E",
   },
   modalOverlay: {
     flex: 1,
@@ -1488,5 +1581,10 @@ const styles = StyleSheet.create({
   },
   disabledLabelText: {
     color: "#6B7280",
+  },
+  timerButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: "#F3F4F6",
   },
 });
